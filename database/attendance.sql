@@ -5,7 +5,7 @@ CREATE TABLE Attendance (
     isPresent     BOOLEAN      NOT NULL,
     status        VARCHAR(20)  NOT NULL,
     remarks       VARCHAR(255) NULL,
-    staffID       INT          NOT NULL,
+    staffID       INT          NOT NULL
 );
  
     -- Foreign key: must link to a real student
