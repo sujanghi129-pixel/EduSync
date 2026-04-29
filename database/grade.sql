@@ -7,3 +7,11 @@ CREATE TABLE Grade (
     isActive BOOLEAN NOT NULL DEFAULT TRUE,
     createdAt DATE NOT NULL DEFAULT CURRENT_DATE
 );
+
+INSERT INTO Grade (gradeName, gradeCode, minAge, maxAge, isActive)
+VALUES 
+('Year 1', 'Y01', 5, 6, TRUE),
+('Year 2', 'Y02', 6, 7, TRUE),
+('Year 3', 'Y03', 7, 8, TRUE),
+('Year 4', 'Y04', 8, 9, TRUE),
+('Year 5', 'Y05', 9, 10, TRUE);
