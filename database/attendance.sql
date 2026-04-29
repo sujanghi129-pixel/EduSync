@@ -5,9 +5,7 @@ CREATE TABLE Attendance (
     isPresent     BOOLEAN      NOT NULL,
     status        VARCHAR(20)  NOT NULL,
     remarks       VARCHAR(255) NULL,
-    staffID       INT          NOT NULL
-);
- 
+    staffID       INT          NOT NULL, 
     -- Foreign key: must link to a real student
     CONSTRAINT fk_attendance_student
         FOREIGN KEY (studentID) REFERENCES Student(studentID),
@@ -18,4 +16,5 @@ CREATE TABLE Attendance (
  
     -- Prevent duplicate attendance for the same student on the same day
     CONSTRAINT uq_student_date
-        UNIQUE (studentID, attendDate);
+        UNIQUE (studentID, attendDate)
+);
