@@ -1,0 +1,9 @@
+CREATE TABLE Grade (
+    gradeID INT PRIMARY KEY AUTO_INCREMENT,
+    gradeName VARCHAR(50) NOT NULL UNIQUE,
+    gradeCode CHAR(3) NOT NULL UNIQUE,
+    minAge INT NOT NULL CHECK (minAge >= 4),
+    maxAge INT NOT NULL CHECK (maxAge <= 18),
+    isActive BOOLEAN NOT NULL DEFAULT TRUE,
+    createdAt DATE NOT NULL DEFAULT CURRENT_DATE
+);
