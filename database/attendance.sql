@@ -18,3 +18,8 @@ CREATE TABLE Attendance (
     CONSTRAINT uq_student_date
         UNIQUE (studentID, attendDate)
 );
+INSERT INTO Attendance (studentID, attendDate, isPresent, status, remarks, staffID) VALUES
+(1, '2025-04-14', TRUE,  'Present', NULL,               1),
+(2, '2025-04-14', FALSE, 'Absent',  'Reported sick',    1),
+(3, '2025-04-14', FALSE, 'Late',    'Arrived 15 mins late', 1),
+(4, '2025-04-15', TRUE,  'Present', NULL,               2);
