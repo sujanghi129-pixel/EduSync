@@ -1,4 +1,4 @@
-CREATE TABLE tblStudent (
+CREATE TABLE Student (
     StudentId     INT          NOT NULL AUTO_INCREMENT,
     FullName      VARCHAR(100) NOT NULL,
     DateOfBirth   DATE         NOT NULL,
@@ -7,13 +7,13 @@ CREATE TABLE tblStudent (
     GradeID       INT,
     ClassID       INT,
 
-    CONSTRAINT PK_tblStudent     PRIMARY KEY (StudentId),
-    CONSTRAINT FK_Student_Grade  FOREIGN KEY (GradeID) REFERENCES tblGrade(GradeID),
-    CONSTRAINT FK_Student_Class  FOREIGN KEY (ClassID) REFERENCES tblClass(ClassID)
+    CONSTRAINT PK_Student     PRIMARY KEY (StudentId),
+    CONSTRAINT FK_Student_Grade  FOREIGN KEY (GradeID) REFERENCES Grade(GradeID),
+    CONSTRAINT FK_Student_Class  FOREIGN KEY (ClassID) REFERENCES Class(ClassID)
 );
 
-INSERT INTO tblStudent(1,"Rajan Acharya","2010-05-15",14,TRUE,1,1);
-INSERT INTO tblStudent(2,"Sita Thapa","2012-08-20",12,TRUE,2,2);
-INSERT INTO tblStudent(3,"Hari Sharma","2009-11-30",15,TRUE,3,3);
-INSERT INTO tblStudent(4,"Gita Rai","2011-03-10",13,TRUE,4,4);
-INSERT INTO tblStudent(5,"Bikash Karki","2013-01-25",11,TRUE,5,5);
+INSERT INTO Student(1,"Rajan Acharya","2010-05-15",14,TRUE,1,1);
+INSERT INTO Student(2,"Sita Thapa","2012-08-20",12,TRUE,2,2);
+INSERT INTO Student(3,"Hari Sharma","2009-11-30",15,TRUE,3,3);
+INSERT INTO Student(4,"Gita Rai","2011-03-10",13,TRUE,4,4);
+INSERT INTO Student(5,"Bikash Karki","2013-01-25",11,TRUE,5,5);
