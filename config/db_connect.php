@@ -1,6 +1,6 @@
 <?php
 $host = "localhost";
-$dbname = "EduSync";
+$dbname = "edusync";
 $user = "root";
 $password = "";
 
