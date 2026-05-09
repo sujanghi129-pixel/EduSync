@@ -16,7 +16,6 @@
 session_start();
 require_once __DIR__ . '/shared/db.php';
 
-
 /**
  * Redirect to dashboard if already logged in.
  * Prevents logged-in users from seeing the login form again.
@@ -30,7 +29,8 @@ $error = null;
 
 /**
  * Process login form submission.
- * Uses the Staff middle layer class to retrieve and verify credentials.
+ * Queries the database directly using a stored procedure.
+ * No Staff.php class needed — keeps login independent this week.
  */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = strtolower(trim($_POST['username'] ?? ''));
@@ -39,23 +39,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$username || !$password) {
         $error = 'Please enter your username and password.';
     } else {
-        /** @var Staff $staffClass - Middle layer instance for authentication */
-        $staffClass = new Staff(db());
+        $pdo = db();
 
         /**
-         * Look up the staff member by username via the middle layer.
-         * Only active accounts are returned by sp_GetStaffByUsername.
+         * Look up the staff member by username.
+         * Only active accounts (isStaffActive = TRUE) can log in.
+         * Calls stored procedure: sp_GetStaffByUsername
          *
          * @var array|false $user The matched staff row, or false if not found.
          */
-        $user = $staffClass->getByUsername($username);
+        $stmt = $pdo->prepare("CALL sp_GetStaffByUsername(?)");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
 
         /**
-         * Verify the submitted password against the stored bcrypt hash
-         * using the middle layer's verifyPassword method.
-         * On success, store safe user fields in the session (never the password hash).
+         * Verify the submitted password against the stored bcrypt hash.
+         * On success, store safe user fields in the session.
+         * The password hash is never stored in the session.
          */
-        if ($user && $staffClass->verifyPassword($password, $user['passwordHash'])) {
+        if ($user && password_verify($password, $user['passwordHash'])) {
             $_SESSION['user'] = [
                 'staffId'  => $user['staffId'],
                 'fullName' => $user['fullName'],
@@ -75,9 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<?php require_once __DIR__ . '/shared/meta.php'; ?>
 <title>EduSync — Login</title>
-<link rel="stylesheet" href="shared/style.css">
 <link rel="stylesheet" href="login.css">
 </head>
 <body>
