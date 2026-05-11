@@ -9,7 +9,7 @@
  * and overall attendance rate, followed by a detailed records table.
  *
  * @package EduSync
- * @author  Laxman Rai
+ * @author  Laxman Giri
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';
