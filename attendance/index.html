@@ -13,45 +13,19 @@
 <div class="app-layout">
   <aside class="sidebar" id="sidebar"></aside>
   <main class="content">
+
+    <div class="page-eyebrow">Component · Laxman Giri</div>
     <div class="page-title">Attendance Records</div>
     <div class="page-sub">Mark and track daily student attendance.</div>
 
-    <!-- ── SUMMARY STATS STRIP ─────────────────────────────── -->
-    <!-- Shows today's quick numbers at a glance -->
-    <div class="att-stats-strip" id="statsStrip">
-      <div class="att-stat-card">
-        <span class="att-stat-num" id="statTotal">—</span>
-        <span class="att-stat-label">Total Students</span>
-      </div>
-      <div class="att-stat-card s-present">
-        <span class="att-stat-num" id="statPresent">—</span>
-        <span class="att-stat-label">Present</span>
-      </div>
-      <div class="att-stat-card s-absent">
-        <span class="att-stat-num" id="statAbsent">—</span>
-        <span class="att-stat-label">Absent</span>
-      </div>
-      <div class="att-stat-card s-late">
-        <span class="att-stat-num" id="statLate">—</span>
-        <span class="att-stat-label">Late</span>
-      </div>
-      <div class="att-stat-card">
-        <span class="att-stat-num" id="statPct">—</span>
-        <span class="att-stat-label">Attendance %</span>
-      </div>
-    </div>
-
-    <!-- ── TABS ────────────────────────────────────────────── -->
+    <!-- TABS -->
     <div class="att-tabs">
-      <button class="att-tab active" id="tab-btn-mark"   onclick="switchTab('mark')">📝 Mark Attendance</button>
+      <button class="att-tab active" id="tab-btn-mark"    onclick="switchTab('mark')">📝 Mark Attendance</button>
       <button class="att-tab"        id="tab-btn-history" onclick="switchTab('history')">📋 History</button>
-      <button class="att-tab"        id="tab-btn-report"  onclick="switchTab('report')">📊 Absence Report</button>
     </div>
 
-    <!-- ── MARK PANEL ──────────────────────────────────────── -->
+    <!-- MARK PANEL -->
     <div id="panel-mark">
-
-      <!-- Class + Date selector -->
       <div class="card-box">
         <div class="form-row">
           <div class="form-group" style="margin:0">
@@ -63,152 +37,33 @@
             <input class="form-input" type="date" id="markDate">
           </div>
         </div>
-        <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; align-items:center;">
-          <button class="btn btn-primary" onclick="loadStudents()">Load Students</button>
-          <!-- Quick-mark all buttons — saves teacher time -->
-          <button class="btn btn-secondary" onclick="markAll('Present')" id="btnAllPresent" disabled>✔ All Present</button>
-          <button class="btn btn-secondary" onclick="markAll('Absent')"  id="btnAllAbsent"  disabled>✘ All Absent</button>
-        </div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="loadStudents()">Load Students</button>
       </div>
-
-      <!-- Student rows injected here by script.js -->
       <div id="markArea"></div>
-
-      <!-- Submit bar — shown after students are loaded -->
-      <div class="att-submit-bar" id="submitBar" style="display:none;">
-        <span class="att-submit-info" id="submitInfo"></span>
-        <button class="btn btn-primary" onclick="submitAttendance()">💾 Save Attendance</button>
-      </div>
-
     </div>
 
-    <!-- ── HISTORY PANEL ───────────────────────────────────── -->
+    <!-- HISTORY PANEL -->
     <div id="panel-history" style="display:none;">
-
-      <!-- Filters toolbar -->
       <div class="toolbar">
         <div class="search-bar">
           <span>🔍</span>
           <input type="text" id="histSearch" placeholder="Search student name…">
         </div>
-        <select class="form-select" id="histClass" style="width:auto;min-width:130px;">
-          <option value="">All Classes</option>
-        </select>
         <select class="form-select" id="histStatus" style="width:auto;min-width:130px;">
           <option value="">All Status</option>
           <option value="Present">Present</option>
           <option value="Absent">Absent</option>
           <option value="Late">Late</option>
         </select>
-        <!-- Date range filter -->
-        <input class="form-input" type="date" id="histFrom" style="width:auto;" title="From date">
-        <input class="form-input" type="date" id="histTo"   style="width:auto;" title="To date">
-        <button class="btn btn-secondary" onclick="filterHistory()">Filter</button>
       </div>
-
-      <!-- History table — includes Edit column per spec -->
       <div class="table-wrap">
         <table>
           <thead>
-            <tr>
-              <th>ID</th>
-              <th>Student</th>
-              <th>Class</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Remarks</th>
-              <th>Marked By</th>
-              <th>Edit</th>
-            </tr>
+            <tr><th>ID</th><th>Student</th><th>Date</th><th>Status</th><th>Remarks</th><th>Marked By</th></tr>
           </thead>
           <tbody id="histBody"></tbody>
         </table>
       </div>
-
-      <!-- Pagination controls -->
-      <div class="att-pagination" id="histPagination">
-        <button class="btn btn-secondary" onclick="histPrevPage()" id="btnPrev">← Prev</button>
-        <span class="att-page-info" id="pageInfo">Page 1</span>
-        <button class="btn btn-secondary" onclick="histNextPage()" id="btnNext">Next →</button>
-      </div>
-
-    </div>
-
-    <!-- ── EDIT MODAL ──────────────────────────────────────── -->
-    <!-- Shown when teacher clicks Edit on a history row       -->
-    <!-- Records are never deleted per spec — only edited      -->
-    <div class="att-modal-backdrop" id="editModalBackdrop" style="display:none;" onclick="closeEditModal()">
-      <div class="att-modal card-box" onclick="event.stopPropagation()">
-        <div class="att-modal-title">Edit Attendance Record</div>
-        <input type="hidden" id="editID">
-        <div class="form-group">
-          <label class="form-label">Student</label>
-          <input class="form-input" id="editStudentName" disabled>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Date</label>
-          <input class="form-input" id="editDate" disabled>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Status</label>
-          <div class="smr-btns" style="margin-top:6px;">
-            <button class="status-btn" onclick="selectEditStatus('Present')" id="edit-btn-Present">Present</button>
-            <button class="status-btn" onclick="selectEditStatus('Absent')"  id="edit-btn-Absent">Absent</button>
-            <button class="status-btn" onclick="selectEditStatus('Late')"    id="edit-btn-Late">Late</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Remarks</label>
-          <input class="form-input remarks-inp" id="editRemarks" placeholder="Optional reason…" style="width:100%;">
-        </div>
-        <div style="display:flex; gap:10px; margin-top:6px;">
-          <button class="btn btn-primary"   onclick="saveEdit()">Save Changes</button>
-          <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── ABSENCE REPORT PANEL ────────────────────────────── -->
-    <!-- Admin view: flags students with too many absences     -->
-    <div id="panel-report" style="display:none;">
-
-      <div class="card-box" style="margin-bottom:16px;">
-        <div class="form-row">
-          <div class="form-group" style="margin:0">
-            <label class="form-label">From Date</label>
-            <input class="form-input" type="date" id="repFrom">
-          </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label">To Date</label>
-            <input class="form-input" type="date" id="repTo">
-          </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Flag if absences ≥</label>
-            <input class="form-input" type="number" id="repThreshold" value="3" min="1" style="width:80px;">
-          </div>
-        </div>
-        <button class="btn btn-primary" style="margin-top:14px;" onclick="runReport()">Generate Report</button>
-      </div>
-
-      <!-- Report results -->
-      <div class="table-wrap" id="reportArea" style="display:none;">
-        <table>
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Class</th>
-              <th>Total Days</th>
-              <th>Present</th>
-              <th>Absent</th>
-              <th>Late</th>
-              <th>Attendance %</th>
-              <th>Flag</th>
-            </tr>
-          </thead>
-          <tbody id="reportBody"></tbody>
-        </table>
-      </div>
-
     </div>
 
   </main>
