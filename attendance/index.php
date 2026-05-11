@@ -10,7 +10,7 @@
  * the form pre-fills with existing records and warns before overwriting.
  *
  * @package EduSync
- * @author  Laxman Rai
+ * @author  Laxman Giri
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';

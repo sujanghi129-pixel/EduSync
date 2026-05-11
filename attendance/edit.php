@@ -8,7 +8,7 @@
  * The notes field is shown only when status is Late or Absent.
  *
  * @package EduSync
- * @author  Laxman Rai
+ * @author  Laxman Giri
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';

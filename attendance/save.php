@@ -9,7 +9,7 @@
  * Validates the date format and status values before saving.
  *
  * @package EduSync
- * @author  Laxman Rai
+ * @author  Laxman Giri
  *
  * @param  int    $_POST['classId']         The ID of the class being marked.
  * @param  string $_POST['date']            The attendance date (Y-m-d format).

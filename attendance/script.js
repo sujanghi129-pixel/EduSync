@@ -10,7 +10,7 @@
  *  - Handles the notes visibility toggle on the single-record edit page
  *
  * @package EduSync
- * @author  Laxman Rai
+ * @author  Laxman Giri
  */
 
 // ── MARK ALL ──────────────────────────────────────────────────
