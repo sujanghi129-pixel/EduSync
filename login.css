@@ -1,0 +1,206 @@
+/* ============================================================
+   login.css — EduSync Login Page
+   Self-contained, no shared CSS needed.
+   @author Sujan Ghimire
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ── RESET ── */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #111110;
+  color: #f0ede5;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ── LAYOUT ── */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* ── CARD ── */
+.login-card {
+  background: #1c1b18;
+  border: 1px solid #2e2c27;
+  border-radius: 18px;
+  padding: 44px 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+
+/* ── LOGO ── */
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.login-logo-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #60a5fa;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: .9rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(96,165,250,.4);
+}
+.login-logo-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f0ede5;
+  letter-spacing: -.02em;
+}
+
+/* ── HEADINGS ── */
+.login-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f0ede5;
+  letter-spacing: -.03em;
+  margin-bottom: 6px;
+}
+.login-sub {
+  font-size: .875rem;
+  color: #8a8880;
+  margin-bottom: 32px;
+}
+
+/* ── ERROR ── */
+.callout-danger {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: .855rem;
+  margin-bottom: 20px;
+  background: #3b0f0f;
+  border-left: 3px solid #f87171;
+  color: #f87171;
+}
+
+/* ── FORM ── */
+.form-group { margin-bottom: 18px; }
+
+.form-label {
+  display: block;
+  font-size: .8rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #f0ede5;
+  letter-spacing: .01em;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #2e2c27;
+  border-radius: 8px;
+  background: #242320;
+  color: #f0ede5;
+  font-size: .9rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.form-input::placeholder { color: #8a8880; }
+.form-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96,165,250,.2);
+}
+
+/* ── BUTTON ── */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 11px 20px;
+  border-radius: 8px;
+  background: #60a5fa;
+  color: #fff;
+  font-size: .9rem;
+  font-weight: 600;
+  font-family: 'Inter', system-ui, sans-serif;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, box-shadow .15s, transform .1s;
+  margin-top: 8px;
+  letter-spacing: .01em;
+}
+.btn-primary:hover {
+  background: #93c5fd;
+  box-shadow: 0 4px 16px rgba(96,165,250,.35);
+  transform: translateY(-1px);
+}
+.btn-primary:active { transform: translateY(0); }
+
+/* ── DEMO BOX ── */
+.demo-box {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: #242320;
+  border-radius: 10px;
+  border: 1px solid #2e2c27;
+}
+.demo-box-title {
+  font-size: .68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: #8a8880;
+  margin-bottom: 10px;
+}
+.demo-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: .8rem;
+  padding: 4px 0;
+}
+.demo-row span:first-child { color: #f0ede5; font-weight: 500; }
+.demo-row span:last-child  { color: #8a8880; font-size: .75rem; }
+.demo-pass {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #2e2c27;
+  font-size: .78rem;
+  color: #8a8880;
+}
+.demo-pass code {
+  font-family: 'Courier New', monospace;
+  background: #1c1b18;
+  color: #60a5fa;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: .78rem;
+  border: 1px solid #2e2c27;
+}
+
+/* ── FOOTER ── */
+.login-footer {
+  margin-top: 24px;
+  font-size: .75rem;
+  color: #8a8880;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 480px) {
+  .login-card { padding: 32px 22px; border-radius: 14px; }
+  .login-title { font-size: 1.35rem; }
+}
