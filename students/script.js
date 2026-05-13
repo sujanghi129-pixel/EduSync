@@ -9,7 +9,7 @@
  *    by fetching matching classes from get_classes.php via AJAX
  *
  * @package EduSync
- * @author  Susma Thapa
+ * @author  Susma pandey
  */
 
 // ── TABLE FILTER ─────────────────────────────────────────────
