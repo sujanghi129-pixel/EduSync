@@ -8,7 +8,7 @@
  * on the add and edit student forms.
  *
  * @package EduSync
- * @author  Susma Thapa
+ * @author  Susma pandey
  *
  * @param  int   $_GET['gradeId']  The ID of the grade to filter classes by.
  * @return string JSON array of objects: [{ classId, className }, ...]
@@ -17,7 +17,7 @@ session_start();
 if (empty($_SESSION['user'])) { http_response_code(401); exit; }
 
 require_once __DIR__ . '/../shared/db.php';
-require_once __DIR__ . '/Student.php';
+require_once __DIR__ . '/../methods/Student.php';
 
 /** @var Student $studentClass - Middle layer instance */
 $studentClass = new Student(db());
