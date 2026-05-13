@@ -61,8 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Load classes for the current/selected grade
 $currentGradeId = (int)($old['gradeId'] ?? $student['gradeId']);
-$stmt = $pdo->prepare("SELECT classId, className FROM tblClass WHERE gradeId = ? AND isStudentActive = 1 ORDER BY className ASC");
-$stmt->execute([$currentGradeId]);
+$stmt = $pdo->prepare("
+    SELECT classId, className
+    FROM tblClass
+    WHERE gradeId = ?
+      AND isClassActive = 1
+    ORDER BY className ASC
+");$stmt->execute([$currentGradeId]);
 $classes = $stmt->fetchAll();
 ?>
 <!DOCTYPE html>
