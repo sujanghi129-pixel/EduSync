@@ -16,7 +16,7 @@ require_once __DIR__ . '/../shared/auth.php';
 requireRole(['Administrator']);
 
 require_once __DIR__ . '/../shared/db.php';
-require_once __DIR__ . '/Staff.php';
+require_once __DIR__ . '/../methods/Staff.php';
 
 /** @var Staff $staffClass - Middle layer instance */
 $staffClass = new Staff(db());
