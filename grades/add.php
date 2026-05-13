@@ -8,7 +8,7 @@
  * and inserts a new tblGrade record on success.
  *
  * @package EduSync
- * @author  Roshni Karki
+ * @author  Dibya Roshni Sahu
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';

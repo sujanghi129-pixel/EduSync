@@ -5,7 +5,7 @@
  * Filters the grades table in real time based on the search input.
  *
  * @package EduSync
- * @author  Roshni Karki
+ * @author  Dibya Roshni Sahu
  */
 
 /**

@@ -8,7 +8,7 @@
  * the tblGrade record on valid POST submission.
  *
  * @package EduSync
- * @author  Roshni Karki
+ * @author  Dibya Roshni Sahu
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';
