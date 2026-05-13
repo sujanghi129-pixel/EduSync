@@ -8,7 +8,7 @@
  * The class dropdown is dynamically populated via AJAX when a grade is selected.
  *
  * @package EduSync
- * @author  Susma Thapa
+ * @author  Susma pandey
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';
@@ -16,7 +16,7 @@ requireRole(['Administrator']);
 $sessionUser = $_SESSION['user'];
 
 require_once __DIR__ . '/../shared/db.php';
-require_once __DIR__ . '/Student.php';
+require_once __DIR__ . '/../methods/Student.php';
 
 /** @var Student $studentClass - Middle layer instance */
 $studentClass = new Student(db());

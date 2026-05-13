@@ -8,7 +8,7 @@
  * All operations call stored procedures in the data layer.
  *
  * @package EduSync
- * @author  Susma Thapa
+ * @author  Susma pandey
  */
 
 require_once __DIR__ . '/../shared/db.php';

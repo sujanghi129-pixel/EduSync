@@ -21,7 +21,7 @@ require_once __DIR__ . '/../shared/auth.php';
 requireRole(['Administrator', 'Teacher', 'Headteacher']);
 
 require_once __DIR__ . '/../shared/db.php';
-require_once __DIR__ . '/Attendance.php';
+require_once __DIR__ . '/../methods/Attendance.php';
 
 /** @var Attendance $attClass - Middle layer instance */
 $attClass = new Attendance(db());

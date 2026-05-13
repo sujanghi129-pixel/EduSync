@@ -8,7 +8,7 @@
  * the tblStudent record on valid POST submission.
  *
  * @package EduSync
- * @author  Susma Thapa
+ * @author  Susma pandey
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';
@@ -16,7 +16,7 @@ requireRole(['Administrator']);
 $sessionUser = $_SESSION['user'];
 
 require_once __DIR__ . '/../shared/db.php';
-require_once __DIR__ . '/Student.php';
+require_once __DIR__ . '/../methods/Student.php';
 
 /** @var Student $studentClass - Middle layer instance */
 $studentClass = new Student(db());
@@ -61,8 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Load classes for the current/selected grade
 $currentGradeId = (int)($old['gradeId'] ?? $student['gradeId']);
-$stmt = $pdo->prepare("SELECT classId, className FROM tblClass WHERE gradeId = ? AND isStudentActive = 1 ORDER BY className ASC");
-$stmt->execute([$currentGradeId]);
+$stmt = $pdo->prepare("
+    SELECT classId, className
+    FROM tblClass
+    WHERE gradeId = ?
+      AND isClassActive = 1
+    ORDER BY className ASC
+");$stmt->execute([$currentGradeId]);
 $classes = $stmt->fetchAll();
 ?>
 <!DOCTYPE html>
