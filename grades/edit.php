@@ -16,7 +16,7 @@ requireRole(['Administrator']);
 $sessionUser = $_SESSION['user'];
 
 require_once __DIR__ . '/../shared/db.php';
-require_once __DIR__ . '/Grade.php';
+require_once __DIR__ . '/../methods/Grade.php';
 
 /** @var Grade $gradeClass - Middle layer instance */
 $gradeClass = new Grade(db());
