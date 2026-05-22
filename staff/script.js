@@ -10,38 +10,65 @@
  */
 
 /**
- * Filters the staff table rows based on the current values of the
- * search input, role filter and status filter.
+ * Filters the staff table rows based on the current values of:
+ * - Search input
+ * - Role filter
+ * - Status filter
  *
- * Each table row stores its searchable data in data-* attributes
+ * Each row stores searchable data in data-* attributes
  * (data-name, data-username, data-role, data-active)
- * which are set by the PHP template.
  *
  * @return {void}
  */
 function filterTable() {
+
+  // Get current filter values
   const q      = document.getElementById('searchInput').value.toLowerCase();
   const role   = document.getElementById('roleFilter').value;
   const status = document.getElementById('statusFilter').value;
 
+  // Loop through each staff row in the table
   document.querySelectorAll('#staffTable tbody tr[data-name]').forEach(row => {
-    const matchQ      = !q      || row.dataset.name.includes(q) || row.dataset.username.includes(q);
-    const matchRole   = !role   || row.dataset.role   === role;
-    const matchStatus = !status || row.dataset.active === status;
 
-    row.style.display = (matchQ && matchRole && matchStatus) ? '' : 'none';
+    // Check if search text matches name or username
+    const matchQ =
+      !q ||
+      row.dataset.name.includes(q) ||
+      row.dataset.username.includes(q);
+
+    // Check if selected role matches row role
+    const matchRole =
+      !role || row.dataset.role === role;
+
+    // Check if selected status matches row status
+    const matchStatus =
+      !status || row.dataset.active === status;
+
+    // Show or hide row depending on filter result
+    row.style.display =
+      (matchQ && matchRole && matchStatus) ? '' : 'none';
   });
 }
 
-// Attach live filter listeners
-document.getElementById('searchInput').addEventListener('input',   filterTable);
-document.getElementById('roleFilter').addEventListener('change',   filterTable);
+/**
+ * Attach event listeners for live filtering
+ *
+ * - input  → runs when user types in search box
+ * - change → runs when dropdown selection changes
+ */
+document.getElementById('searchInput').addEventListener('input', filterTable);
+document.getElementById('roleFilter').addEventListener('change', filterTable);
 document.getElementById('statusFilter').addEventListener('change', filterTable);
 
 /**
- * Auto-hide the success/error toast message after 4 seconds.
+ * Auto-hide success or error toast message after 4 seconds
  *
  * @type {HTMLElement|null}
  */
 const toast = document.getElementById('toastMsg');
-if (toast) setTimeout(() => toast.style.display = 'none', 4000);
+
+if (toast) {
+  setTimeout(() => {
+    toast.style.display = 'none';
+  }, 4000);
+}
