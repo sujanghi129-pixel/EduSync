@@ -3,9 +3,12 @@
 /**
  * attendance/edit.php
  *
- * Displays and processes the Edit Attendance Record form.
- * Allows correcting a single student's attendance status and remarks.
- * The notes field is shown only when status is Late or Absent.
+ * Edit a single attendance record.
+ * Allows correcting a student's status and remarks for a specific date.
+ * Notes field is shown only when status is Late or Absent.
+ *
+ * On GET  — renders the edit form pre-filled with current values.
+ * On POST — validates via attendance_validation.php, updates via middle layer.
  *
  * @package EduSync
  * @author  Laxman Giri
@@ -17,38 +20,31 @@ $sessionUser = $_SESSION['user'];
 
 require_once __DIR__ . '/../shared/db.php';
 require_once __DIR__ . '/../methods/Attendance.php';
+require_once __DIR__ . '/validation/attendance_validation.php';
 
 /** @var Attendance $attClass - Middle layer instance */
 $attClass = new Attendance(db());
-$pdo = db(); // Still needed for class/student lookups
 
-$id   = (int)($_GET['id'] ?? 0);
-$stmt = $pdo->prepare("
-    SELECT a.*, s.fullName AS studentName, c.className, g.gradeName
-    FROM tblAttendance a
-    LEFT JOIN tblStudent s ON s.studentId = a.studentId
-    LEFT JOIN tblClass   c ON c.classId   = a.classId
-    LEFT JOIN tblGrade   g ON g.gradeId   = c.gradeId
-    WHERE a.attendanceId = ?
-");$stmt->execute([$id]);
-$record = $stmt->fetch();
-if (!$record) { header('Location: report.php'); exit; }
+$id     = (int)($_GET['id'] ?? 0);
+$record = $attClass->getById($id);
+if (!$record) {
+    header('Location: list.php');
+    exit;
+}
 
-$error = null;
+$errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = $_POST['status'] ?? '';
     $notes  = trim($_POST['notes'] ?? '');
-    $validStatuses = ['present', 'absent', 'late'];
 
-    if (!in_array($status, $validStatuses)) {
-        $error = 'Please select a valid status.';
-    } else {
+    $errors = validateAttendanceUpdate($status, $notes);
+
+    if (!$errors) {
         if ($status === 'present') $notes = '';
-        // Update via middle layer
         $attClass->update($id, $status, $notes);
         $_SESSION['toast'] = "Attendance updated for {$record['studentName']}.";
-        header('Location: report.php');
+        header('Location: list.php');
         exit;
     }
 }
@@ -75,8 +71,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="card" style="max-width:460px;">
 
-      <?php if ($error): ?>
-        <div class="callout callout-danger" style="margin-bottom:16px;">⚠️ <?= htmlspecialchars($error) ?></div>
+      <?php if ($errors): ?>
+        <?php foreach ($errors as $err): ?>
+          <div class="callout callout-danger" style="margin-bottom:12px;">⚠️ <?= htmlspecialchars($err) ?></div>
+        <?php endforeach; ?>
       <?php endif; ?>
 
       <!-- Record summary -->
@@ -94,34 +92,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label class="form-label">Attendance Status <span class="req">*</span></label>
           <div class="status-toggle" style="margin-top:6px;">
-            <label class="status-btn <?= $record['status'] === 'present' ? 'active-present' : '' ?>">
+            <?php $cur = $_POST['status'] ?? $record['status']; ?>
+            <label class="status-btn <?= $cur === 'present' ? 'active-present' : '' ?>">
               <input type="radio" name="status" value="present"
-                <?= $record['status'] === 'present' ? 'checked' : '' ?>> ✓ Present
+                <?= $cur === 'present' ? 'checked' : '' ?>> ✓ Present
             </label>
-            <label class="status-btn <?= $record['status'] === 'late' ? 'active-late' : '' ?>">
+            <label class="status-btn <?= $cur === 'late' ? 'active-late' : '' ?>">
               <input type="radio" name="status" value="late"
-                <?= $record['status'] === 'late' ? 'checked' : '' ?>> ⏱ Late
+                <?= $cur === 'late' ? 'checked' : '' ?>> ⏱ Late
             </label>
-            <label class="status-btn <?= $record['status'] === 'absent' ? 'active-absent' : '' ?>">
+            <label class="status-btn <?= $cur === 'absent' ? 'active-absent' : '' ?>">
               <input type="radio" name="status" value="absent"
-                <?= $record['status'] === 'absent' ? 'checked' : '' ?>> ✗ Absent
+                <?= $cur === 'absent' ? 'checked' : '' ?>> ✗ Absent
             </label>
           </div>
         </div>
 
-        <div class="form-group" id="notesGroup" style="<?= $record['status'] === 'present' ? 'display:none;' : '' ?>">
+        <div class="form-group" id="notesGroup" style="<?= $cur === 'present' ? 'display:none;' : '' ?>">
           <label class="form-label">Remarks / Reason</label>
           <input
             class="form-input"
             type="text"
             name="notes"
             placeholder="Reason for late / absent"
-            value="<?= htmlspecialchars($record['notes'] ?? '') ?>"
+            value="<?= htmlspecialchars($_POST['notes'] ?? $record['notes'] ?? '') ?>"
           >
         </div>
 
         <div class="modal-footer" style="padding:16px 0 0;border-top:1px solid var(--border);margin-top:8px;">
-          <a href="report.php" class="btn btn-ghost">Cancel</a>
+          <a href="list.php" class="btn btn-ghost">Cancel</a>
           <button type="submit" class="btn btn-primary">Update Record</button>
         </div>
 
@@ -131,5 +130,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </main>
 </div>
 <script src="../shared/auth.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

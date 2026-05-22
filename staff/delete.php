@@ -30,7 +30,23 @@ if (!$staff) { header('Location: index.php'); exit; }
 /** @var bool $hasClasses - Whether staff is assigned to an active class */
 $hasClasses = $staffClass->isAssignedToClass($id);
 
+/**
+ * True only when the target is an ACTIVE Administrator and they are
+ * the last active one. Inactive admins can always be deleted safely
+ * because they cannot log in and do not count toward the minimum.
+ *
+ * @var bool $isLastAdmin
+ */
+$isLastAdmin = ($staff['role'] === 'Administrator'
+             && $staff['isStaffActive']
+             && $staffClass->countAdmins() <= 1);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($isLastAdmin) {
+        $_SESSION['toast_error'] = "Cannot delete: \"{$staff['fullName']}\" is the only Administrator. Assign another Administrator first.";
+        header("Location: delete.php?id=$id");
+        exit;
+    }
     if ($hasClasses) {
         $_SESSION['toast_error'] = "Cannot delete: {$staff['fullName']} is assigned to an active class.";
         header("Location: delete.php?id=$id");
@@ -92,7 +108,12 @@ $roleColor  = ['Administrator'=>'badge-blue','Teacher'=>'badge-yellow','Headteac
         Permanently delete <strong><?= htmlspecialchars($staff['fullName']) ?></strong>? This cannot be undone.
       </p>
 
-      <?php if ($hasClasses): ?>
+      <?php if ($isLastAdmin): ?>
+        <div class="callout callout-danger">
+          <span>🛡️</span>
+          <span>Cannot delete: <strong><?= htmlspecialchars($staff['fullName']) ?></strong> is the only Administrator. At least one Administrator must remain. Assign another Administrator first.</span>
+        </div>
+      <?php elseif ($hasClasses): ?>
         <div class="callout callout-danger">
           <span>🚫</span>
           <span>Cannot delete: this staff member is assigned to an active class. Reassign the class teacher first.</span>
@@ -106,7 +127,7 @@ $roleColor  = ['Administrator'=>'badge-blue','Teacher'=>'badge-yellow','Headteac
 
       <div class="modal-footer" style="padding:16px 0 0;border-top:1px solid var(--border);margin-top:16px;">
         <a href="index.php" class="btn btn-ghost">Cancel</a>
-        <?php if ($staff['isStaffActive'] && !$hasClasses): ?>
+        <?php if ($staff['isStaffActive'] && !$hasClasses && !$isLastAdmin): ?>
           <form method="POST" action="toggle.php" style="display:inline;">
             <input type="hidden" name="staffId" value="<?= $id ?>">
             <button type="submit" class="btn btn-ghost">Deactivate Instead</button>
@@ -114,7 +135,7 @@ $roleColor  = ['Administrator'=>'badge-blue','Teacher'=>'badge-yellow','Headteac
         <?php endif; ?>
         <form method="POST" action="delete.php?id=<?= $id ?>" style="display:inline;">
           <input type="hidden" name="staffId" value="<?= $id ?>">
-          <button type="submit" class="btn btn-danger" <?= $hasClasses ? 'disabled' : '' ?>>
+          <button type="submit" class="btn btn-danger" <?= ($hasClasses || $isLastAdmin) ? 'disabled' : '' ?>>
             Delete Permanently
           </button>
         </form>

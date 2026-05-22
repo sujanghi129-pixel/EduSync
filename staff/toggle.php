@@ -34,6 +34,13 @@ if ($staff['isStaffActive'] && $staffClass->isAssignedToClass($id)) {
     exit;
 }
 
+// Block deactivation if this is the last active Administrator
+if ($staff['isStaffActive'] && $staff['role'] === 'Administrator' && $staffClass->countAdmins() <= 1) {
+    $_SESSION['toast_error'] = "Cannot deactivate: \"{$staff['fullName']}\" is the only Administrator. At least one active Administrator must remain.";
+    header('Location: index.php');
+    exit;
+}
+
 // Toggle via middle layer
 $staffClass->toggleStatus($id);
 $newState = $staff['isStaffActive'] ? 'deactivated' : 'activated';

@@ -173,6 +173,44 @@ BEGIN
       AND isClassActive  = TRUE;
 END$$
 
+-- ── sp_FilterStaff ─────────────────────────────────────
+-- Filters staff records by search keyword, role and status.
+-- NULL parameters mean no filter is applied for that field.
+-- Used by the staff list page server-side filter form.
+--
+-- @param p_search   VARCHAR(100) - Search term for fullName or username. NULL = no filter.
+-- @param p_role     VARCHAR(50)  - Role to filter by. NULL = all roles.
+-- @param p_isActive TINYINT      - 1=active, 0=inactive. NULL = all statuses.
+CREATE PROCEDURE sp_FilterStaff(
+    IN p_search   VARCHAR(100),
+    IN p_role     VARCHAR(50),
+    IN p_isActive TINYINT
+)
+BEGIN
+    SELECT staffId, fullName, username, role, isStaffActive, staffCreatedAt
+    FROM tblStaff
+    WHERE
+        (p_search   IS NULL OR fullName LIKE CONCAT('%', p_search, '%')
+                             OR username LIKE CONCAT('%', p_search, '%'))
+    AND (p_role     IS NULL OR role          = p_role)
+    AND (p_isActive IS NULL OR isStaffActive = p_isActive)
+    ORDER BY staffId ASC;
+END$$
+
+-- ── sp_CountAdmins ───────────────────────────────────────
+-- Returns the number of ACTIVE Administrator accounts.
+-- Only active admins are counted — inactive admins cannot log
+-- in and must not satisfy the minimum-one-admin rule.
+-- Used by Staff::countAdmins() in delete.php and toggle.php
+-- to prevent deleting or deactivating the last active admin.
+CREATE PROCEDURE sp_CountAdmins()
+BEGIN
+    SELECT COUNT(*) AS adminCount
+    FROM   tblStaff
+    WHERE  role          = 'Administrator'
+    AND    isStaffActive = 1;
+END$$
+
 DELIMITER ;
 
 -- ============================================================

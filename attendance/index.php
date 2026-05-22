@@ -3,11 +3,21 @@
 /**
  * attendance/index.php
  *
- * Displays the Mark Attendance page.
- * The user selects a class and date, then marks each student
- * as Present, Late or Absent with an optional remarks note.
- * If attendance already exists for the selected class and date,
- * the form pre-fills with existing records and warns before overwriting.
+ * Entry point for the Attendance module.
+ * Displays the Mark Attendance page: select class and date,
+ * then mark each student as Present, Late or Absent.
+ * If attendance already exists for the selection, pre-fills
+ * the form and warns before overwriting.
+ *
+ * Sub-pages:
+ *   list.php   — View / filter attendance report
+ *   add.php    — Save (mark) attendance (POST handler)
+ *   edit.php   — Edit a single record
+ *   delete.php — Delete a single record
+ *   find.php   — Look up a student's attendance history
+ *   filter.php — Advanced filter / export
+ *   login/     — Login gate helpers
+ *   validation/— Server-side validation helpers
  *
  * @package EduSync
  * @author  Laxman Giri
@@ -19,10 +29,11 @@ $sessionUser = $_SESSION['user'];
 
 require_once __DIR__ . '/../shared/db.php';
 require_once __DIR__ . '/../methods/Attendance.php';
+require_once __DIR__ . '/validation/attendance_validation.php';
 
 /** @var Attendance $attClass - Middle layer instance */
 $attClass = new Attendance(db());
-$pdo = db(); // Still needed for class/student lookups
+$pdo      = db();
 
 $classes = $pdo->query("
     SELECT c.classId, c.className, g.gradeName
@@ -38,6 +49,35 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
 
 $selectedClass = (int)($_GET['classId'] ?? 0);
 $selectedDate  = $_GET['date'] ?? date('Y-m-d');
+
+// Load existing attendance if class and date are selected
+$existing      = [];
+$alreadyMarked = false;
+$students      = [];
+$classInfo     = null;
+
+if ($selectedClass && $selectedDate) {
+    $existing      = $attClass->getByClassDate($selectedClass, $selectedDate);
+    $alreadyMarked = !empty($existing);
+
+    $stmt = $pdo->prepare("
+        SELECT s.studentId, s.fullName
+        FROM tblStudent s
+        WHERE s.classId = ? AND s.isStudentActive = TRUE
+        ORDER BY s.fullName ASC
+    ");
+    $stmt->execute([$selectedClass]);
+    $students = $stmt->fetchAll();
+
+    $stmt = $pdo->prepare("
+        SELECT c.className, g.gradeName
+        FROM tblClass c
+        LEFT JOIN tblGrade g ON g.gradeId = c.gradeId
+        WHERE c.classId = ?
+    ");
+    $stmt->execute([$selectedClass]);
+    $classInfo = $stmt->fetch();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
@@ -66,6 +106,7 @@ $selectedDate  = $_GET['date'] ?? date('Y-m-d');
       <div class="callout callout-danger" id="toastMsg">⚠️ <?= htmlspecialchars($toastError) ?></div>
     <?php endif; ?>
 
+    <!-- Class + Date selector -->
     <form method="GET" action="index.php" class="attendance-selector card" style="max-width:560px;margin-bottom:24px;">
       <div class="form-row">
         <div class="form-group" style="margin-bottom:0;">
@@ -88,47 +129,11 @@ $selectedDate  = $_GET['date'] ?? date('Y-m-d');
       </div>
       <div style="margin-top:14px;">
         <button type="submit" class="btn btn-primary">Load Students</button>
-        <a href="report.php" class="btn btn-ghost" style="margin-left:6px;">View Report →</a>
+        <a href="list.php" class="btn btn-ghost" style="margin-left:6px;">View Report →</a>
       </div>
     </form>
 
     <?php if ($selectedClass && $selectedDate): ?>
-      <?php
-        $stmt = $pdo->prepare("
-            SELECT s.studentId, s.fullName
-            FROM tblStudent s
-            WHERE s.classId = ? AND s.isStudentActive = TRUE
-            ORDER BY s.fullName ASC
-        ");
-        $stmt->execute([$selectedClass]);
-        $students = $stmt->fetchAll();
-
-        $stmt = $pdo->prepare("
-            SELECT c.className, g.gradeName
-            FROM tblClass c
-            LEFT JOIN tblGrade g ON g.gradeId = c.gradeId
-            WHERE c.classId = ?
-        ");
-        $stmt->execute([$selectedClass]);
-        $classInfo = $stmt->fetch();
-
-        // Load existing attendance including notes
-        $stmt = $pdo->prepare("
-            SELECT studentId, status, notes
-            FROM tblAttendance
-            WHERE classId = ? AND date = ?
-        ");
-        $stmt->execute([$selectedClass, $selectedDate]);
-        $existing = [];
-        foreach ($stmt->fetchAll() as $row) {
-            $existing[$row['studentId']] = [
-                'status' => $row['status'],
-                'notes'  => $row['notes']
-            ];
-        }
-
-        $alreadyMarked = !empty($existing);
-      ?>
 
       <?php if (empty($students)): ?>
         <div class="callout callout-warn">
@@ -147,7 +152,7 @@ $selectedDate  = $_GET['date'] ?? date('Y-m-d');
           <?php endif; ?>
         </div>
 
-        <form method="POST" action="save.php">
+        <form method="POST" action="add.php">
           <input type="hidden" name="classId" value="<?= $selectedClass ?>">
           <input type="hidden" name="date"    value="<?= htmlspecialchars($selectedDate) ?>">
 
