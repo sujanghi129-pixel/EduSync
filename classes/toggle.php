@@ -8,14 +8,14 @@
  * Redirects back to the classes list with a toast message.
  *
  * @package EduSync
- * @author  Saimon Shrestha
+ * @author  Saimon
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';
 requireRole(['Administrator']);
 
 require_once __DIR__ . '/../shared/db.php';
-require_once __DIR__ . '/ClassModel.php';
+require_once __DIR__ . '/../methods/ClassModel.php';
 
 /** @var ClassModel $classModel - Middle layer instance */
 $classModel = new ClassModel(db());
