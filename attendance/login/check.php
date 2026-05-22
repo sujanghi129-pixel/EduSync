@@ -73,5 +73,13 @@ if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
     $return = '../index.php';
 }
 
+
+// Set session
+$_SESSION['user'] = [
+    'staffId'  => $staff['staffId'],
+    'fullName' => $staff['fullName'],
+    'username' => $staff['username'],
+    'role'     => $staff['role'],
+];
 header('Location: ' . $return);
 exit;
