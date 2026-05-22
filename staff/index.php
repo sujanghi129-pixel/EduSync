@@ -71,6 +71,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
         <option value="1">Active</option>
         <option value="0">Inactive</option>
       </select>
+      <a href="list.php" class="btn btn-ghost">👥 View List</a>
       <a href="add.php" class="btn btn-primary">+ Add Staff</a>
     </div>
 
@@ -145,5 +146,6 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
 </div>
 <script src="../shared/auth.js"></script>
 <script src="script.js"></script>
+
 </body>
 </html>

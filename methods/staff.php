@@ -195,4 +195,17 @@ class Staff {
         return password_verify($password, $passwordHash);
     }
 
+    /**
+     * Counts the total number of staff members with the Administrator role.
+     * Used to enforce the minimum-one-admin rule before deletion or deactivation.
+     * Calls stored procedure: sp_CountAdmins
+     *
+     * @return int Number of Administrator accounts in the database.
+     */
+    public function countAdmins(): int {
+        $stmt = $this->pdo->prepare("CALL sp_CountAdmins()");
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    }
+
 }
