@@ -197,6 +197,20 @@ BEGIN
     ORDER BY staffId ASC;
 END$$
 
+-- ── sp_CountAdmins ───────────────────────────────────────
+-- Returns the number of ACTIVE Administrator accounts.
+-- Only active admins are counted — inactive admins cannot log
+-- in and must not satisfy the minimum-one-admin rule.
+-- Used by Staff::countAdmins() in delete.php and toggle.php
+-- to prevent deleting or deactivating the last active admin.
+CREATE PROCEDURE sp_CountAdmins()
+BEGIN
+    SELECT COUNT(*) AS adminCount
+    FROM   tblStaff
+    WHERE  role          = 'Administrator'
+    AND    isStaffActive = 1;
+END$$
+
 DELIMITER ;
 
 -- ============================================================
