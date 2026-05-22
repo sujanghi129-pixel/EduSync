@@ -38,12 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $gradeName   = trim($_POST['gradeName']   ?? '');
     $description = trim($_POST['description'] ?? '');
 
-    // Check if grade name is empty
+    // validates if grade name is empty
     if (!$gradeName) {
         $error = 'Grade name is required.';
     } else {
 
-        // Check if grade already exists
+        // validates if grade already exists
         $pdo  = db();
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM tblGrade WHERE gradeName = ?");
         $stmt->execute([$gradeName]);
