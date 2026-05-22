@@ -16,7 +16,7 @@ requireRole(['Administrator']);
 $sessionUser = $_SESSION['user'];
 
 require_once __DIR__ . '/../shared/db.php';
-require_once __DIR__ . '/ClassModel.php';
+require_once __DIR__ . '/../methods/ClassModel.php';
 
 /** @var ClassModel $classModel - Middle layer instance */
 $classModel = new ClassModel(db());
