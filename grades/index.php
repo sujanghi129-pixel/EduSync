@@ -11,13 +11,21 @@
  * @author  Dibya Roshni Sahu
  */
 
+// Start session
 session_start();
+
+// Check login and admin access
 require_once __DIR__ . '/../shared/auth.php';
 requireRole(['Administrator']);
 
+
+// Get logged in user
 $sessionUser = $_SESSION['user'];
 
+// Load database
 require_once __DIR__ . '/../shared/db.php';
+
+// Database connection
 $pdo = db();
 
 // Fetch all grades with their class count
@@ -31,9 +39,13 @@ $grades = $pdo->query("
     ORDER BY g.gradeId ASC
 ")->fetchAll();
 
+// Success message
 $toast      = $_SESSION['toast'] ?? null;
+
+// Error message
 $toastError = $_SESSION['toast_error'] ?? null;
 
+// Remove session messages
 unset($_SESSION['toast'], $_SESSION['toast_error']);
 ?>
 
@@ -42,40 +54,58 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
 
 <head>
 <meta charset="UTF-8">
+
+<!-- Shared meta file -->
 <?php require_once __DIR__ . '/../shared/meta.php'; ?>
+
+<!-- Responsive screen -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Page title -->
 <title>Grades — EduSync</title>
+
+<!-- CSS file -->
 <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
+<!-- Overlay -->
 <div class="overlay" id="overlay"></div>
+
+<!-- Top navigation -->
 <nav class="topnav" id="topnav"></nav>
 
 <div class="app-layout">
+
+  <!-- Sidebar -->
   <aside class="sidebar" id="sidebar"></aside>
 
   <main class="content">
 
+    <!-- Logged in user details -->
     <div class="page-eyebrow">
       <?= htmlspecialchars($sessionUser['role']) ?>
       ·
       <?= htmlspecialchars($sessionUser['fullName']) ?>
     </div>
 
+    <!-- Page title -->
     <div class="page-title">Grades</div>
 
+    <!-- Page description -->
     <div class="page-sub">
       Manage year groups. Each grade can contain multiple classes.
     </div>
 
+    <!-- Success toast message -->
     <?php if ($toast): ?>
       <div class="callout callout-success" id="toastMsg">
         ✅ <?= htmlspecialchars($toast) ?>
       </div>
     <?php endif; ?>
 
+    <!-- Error toast message -->
     <?php if ($toastError): ?>
       <div class="callout callout-danger" id="toastMsg">
         ⚠️ <?= htmlspecialchars($toastError) ?>
@@ -95,7 +125,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
         >
       </div>
 
-      <!-- Class Count Filter -->
+      <!-- Class count filter -->
       <select
         class="form-select"
         id="classFilter"
@@ -106,7 +136,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
         <option value="1">1+ Classes</option>
       </select>
 
-      <!-- Status Filter -->
+      <!-- Status filter -->
       <select
         class="form-select"
         id="statusFilter"
@@ -117,6 +147,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
         <option value="inactive">Inactive</option>
       </select>
 
+      <!-- Add grade button -->
       <a href="add.php" class="btn btn-primary">
         + Add Grade
       </a>
@@ -127,6 +158,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
     <div class="table-wrap">
       <table id="gradeTable">
 
+        <!-- Table headings -->
         <thead>
           <tr>
             <th>ID</th>
@@ -141,6 +173,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
 
         <tbody>
 
+        <!-- Show message if no grades -->
         <?php if (empty($grades)): ?>
 
           <tr>
@@ -157,6 +190,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
 
         <?php else: ?>
 
+          <!-- Loop through grades -->
           <?php foreach ($grades as $g): ?>
 
           <tr
@@ -165,24 +199,24 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
             data-status="<?= $g['classCount'] > 0 ? 'active' : 'inactive' ?>"
           >
 
-            <!-- ID -->
+            <!-- Grade ID -->
             <td>
               <code><?= $g['gradeId'] ?></code>
             </td>
 
-            <!-- Grade Name -->
+            <!-- Grade name -->
             <td>
               <strong>
                 <?= htmlspecialchars($g['gradeName']) ?>
               </strong>
             </td>
 
-            <!-- Description -->
+            <!-- Grade description -->
             <td>
               <?= htmlspecialchars($g['description'] ?? '—') ?>
             </td>
 
-            <!-- Classes -->
+            <!-- Class count -->
             <td>
               <span class="badge badge-blue">
                 <?= $g['classCount'] ?>
@@ -190,7 +224,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
               </span>
             </td>
 
-            <!-- Dynamic Status -->
+            <!-- Dynamic status -->
             <td>
               <?php if ($g['classCount'] > 0): ?>
                 <span class="badge badge-green">
@@ -203,15 +237,16 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
               <?php endif; ?>
             </td>
 
-            <!-- Created Date -->
+            <!-- Created date -->
             <td>
               <?= htmlspecialchars($g['gradeCreatedAt']) ?>
             </td>
 
-            <!-- Actions -->
+            <!-- Action buttons -->
             <td>
               <div class="action-row">
 
+                <!-- Edit button -->
                 <a
                   href="edit.php?id=<?= $g['gradeId'] ?>"
                   class="btn btn-ghost btn-sm"
@@ -219,6 +254,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
                   Edit
                 </a>
 
+                <!-- Delete button -->
                 <a
                   href="delete.php?id=<?= $g['gradeId'] ?>"
                   class="btn btn-danger btn-sm"
@@ -242,42 +278,56 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
   </main>
 </div>
 
+<!-- Shared JS -->
 <script src="../shared/auth.js"></script>
 
 <script>
+
+// Search input
 const searchInput =
     document.getElementById('searchInput');
 
+// Class filter
 const classFilter =
     document.getElementById('classFilter');
 
+// Status filter
 const statusFilter =
     document.getElementById('statusFilter');
 
+// Table rows
 const rows =
     document.querySelectorAll(
         '#gradeTable tbody tr'
     );
 
+// Filter table function
 function filterTable() {
 
+    // Search text
     const searchValue =
         searchInput.value.toLowerCase();
 
+    // Class filter value
     const classValue =
         classFilter.value;
 
+    // Status filter value
     const statusValue =
         statusFilter.value;
 
+    // Loop through rows
     rows.forEach(row => {
 
+        // Grade name
         const name =
             row.dataset.name || '';
 
+        // Class count
         const classCount =
             row.dataset.classcount || '';
 
+        // Status
         const status =
             row.dataset.status || '';
 
@@ -298,6 +348,7 @@ function filterTable() {
             statusValue === '' ||
             status === statusValue;
 
+        // Show or hide rows
         row.style.display =
             matchesSearch &&
             matchesClass &&
@@ -307,17 +358,19 @@ function filterTable() {
     });
 }
 
-// Event listeners
+// Search event
 searchInput.addEventListener(
     'input',
     filterTable
 );
 
+// Class filter event
 classFilter.addEventListener(
     'change',
     filterTable
 );
 
+// Status filter event
 statusFilter.addEventListener(
     'change',
     filterTable

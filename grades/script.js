@@ -1,37 +1,61 @@
 /**
  * grades/script.js
  *
- * Client-side filtering for the Grades list page.
- * Filters the grades table in real time based on the search input.
+ * Handles filtering and toast messages
+ * for the Grades page.
  *
  * @package EduSync
  * @author  Dibya Roshni Sahu
  */
 
 /**
- * Filters the grades table rows based on the current search input value.
- *
- * Each table row stores its grade name in the data-name attribute,
- * which is set by the PHP template.
- *
- * @return {void}
+ * Function to filter the grades table
+ * based on the search input.
  */
 function filterTable() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
 
-  document.querySelectorAll('#gradeTable tbody tr[data-name]').forEach(row => {
-    // Show row only if the grade name contains the search query
-    row.style.display = (!q || row.dataset.name.includes(q)) ? '' : 'none';
-  });
+  // Get search input value and convert to lowercase
+  const q =
+    document
+      .getElementById('searchInput')
+      .value
+      .toLowerCase();
+
+  // Select all table rows with grade names
+  document
+    .querySelectorAll(
+      '#gradeTable tbody tr[data-name]'
+    )
+    .forEach(row => {
+
+      // Show row if search text matches grade name
+      row.style.display =
+        (!q || row.dataset.name.includes(q))
+          ? ''
+          : 'none';
+    });
 }
 
-// Attach live filter listener to the search input
-document.getElementById('searchInput').addEventListener('input', filterTable);
+// Run filter function while typing in search box
+document
+  .getElementById('searchInput')
+  .addEventListener(
+    'input',
+    filterTable
+  );
 
 /**
- * Auto-hide the success/error toast message after 4 seconds.
- *
- * @type {HTMLElement|null}
+ * Auto-hide success or error toast message
+ * after 4 seconds.
  */
-const toast = document.getElementById('toastMsg');
-if (toast) setTimeout(() => toast.style.display = 'none', 4000);
+
+// Get toast message element
+const toast =
+  document.getElementById('toastMsg');
+
+// Hide toast after 4 seconds if it exists
+if (toast)
+  setTimeout(
+    () => toast.style.display = 'none',
+    4000
+  );
