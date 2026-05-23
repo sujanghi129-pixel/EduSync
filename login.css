@@ -41,24 +41,20 @@ body {
 .login-logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 32px;
 }
-.login-logo-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: #60a5fa;
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: .9rem;
+.login-logo-img {
+  width: 40px !important;
+  height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  object-fit: contain;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(96,165,250,.4);
+  display: block;
 }
 .login-logo-name {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #f0ede5;
   letter-spacing: -.02em;

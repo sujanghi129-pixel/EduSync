@@ -118,8 +118,10 @@
       <button class="hamburger" id="hamburger" aria-label="Menu">
         <span></span><span></span><span></span>
       </button>
-      <div class="nav-logo">ES</div>
-      <div class="nav-brand">EduSync</div>
+      <a href="${url('landing.php')}" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+        <img src="${url('shared/logo.png')}" alt="EduSync" style="height:32px;width:32px;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)) brightness(1.08);flex-shrink:0;">
+        <span style="font-weight:700;font-size:.95rem;color:var(--text);letter-spacing:-.02em;white-space:nowrap;">EduSync</span>
+      </a>
       <div class="nav-spacer"></div>
       <div class="nav-right">
         <div class="nav-avatar" title="${esc(user.fullName || 'EduSync')}">${initials}</div>

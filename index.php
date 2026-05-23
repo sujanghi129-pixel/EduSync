@@ -86,8 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="login-card">
 
     <div class="login-logo">
-      <div class="login-logo-icon">ES</div>
-      <div class="login-logo-name">EduSync</div>
+      <img src="shared/logo.png" alt="EduSync Logo" class="login-logo-img">
+      <span class="login-logo-name">EduSync</span>
     </div>
 
     <div class="login-title">Welcome back</div>
@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="login-footer">
-      Niels Brock Copenhagen Business College &mdash; EduSync v1.0
+    <p>&copy; 2026 EduSync &mdash; Student Record System.</p>
     </div>
 
   </div>
