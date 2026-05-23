@@ -264,10 +264,36 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  // ── FOOTER ────────────────────────────────────────────────
+  /**
+   * Injects the app footer after the .content area.
+   */
+  function buildFooter() {
+    const footer = document.createElement('footer');
+    footer.className = 'app-footer';
+    footer.innerHTML = `
+      <div class="app-footer-inner">
+        <p>&copy; 2026 EduSync &mdash; Student Record System.</p>
+        <div class="app-footer-badges">
+          <span class="app-footer-badge">PHP</span>
+          <span class="app-footer-badge">MySQL</span>
+          <span class="app-footer-badge">HTML/CSS/JS</span>
+          <span class="app-footer-badge">GDPR</span>
+          <span class="app-footer-badge">Agile</span>
+        </div>
+      </div>
+    `;
+    // Insert after the app-layout div, before </body>
+    const layout = document.querySelector('.app-layout');
+    if (layout) layout.after(footer);
+    else document.body.appendChild(footer);
+  }
+
   // ── INIT ──────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     buildNav();
     buildSidebar();
+    buildFooter();
   });
 
 })();
