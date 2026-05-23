@@ -123,6 +123,11 @@
         <span style="font-weight:700;font-size:.95rem;color:var(--text);letter-spacing:-.02em;white-space:nowrap;">EduSync</span>
       </a>
       <div class="nav-spacer"></div>
+      <div class="nav-center-links">
+        <a href="${url('landing.php')}" class="nav-center-link">Home</a>
+        <a href="#" class="nav-center-link" id="nav-about-btn">About</a>
+      </div>
+      <div class="nav-spacer"></div>
       <div class="nav-right">
         <div class="nav-avatar" title="${esc(user.fullName || 'EduSync')}">${initials}</div>
         <a href="${url('logout.php')}" class="btn-signout">Sign out</a>
@@ -130,6 +135,12 @@
     `;
 
     document.getElementById('hamburger')?.addEventListener('click', toggleSidebar);
+
+    document.getElementById('nav-about-btn')?.addEventListener('click', e => {
+      e.preventDefault();
+      const footer = document.querySelector('.app-footer');
+      if (footer) footer.scrollIntoView({ behavior: 'smooth' });
+    });
   }
 
   // ── SIDEBAR BUILDER ───────────────────────────────────────
