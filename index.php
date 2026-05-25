@@ -13,38 +13,39 @@
  * @author  Sujan Ghimire
  */
 
-// Start (or resume) the PHP session so $_SESSION is available throughout the request
+// Start (or resume) the PHP session so $_SESSION is available throughout
 session_start();
 
 // Load the database connection factory function db()
 require_once __DIR__ . '/shared/db.php';
 
 // ── ALREADY LOGGED IN ────────────────────────────────────────────────────────
-// If a valid session already exists, skip the login form entirely and send the
-// user straight to the dashboard. Using exit after header() is essential to
-// prevent any further PHP execution after the redirect.
+// If a valid session already exists, skip the login form entirely and redirect
+// the user straight to the dashboard.
+// exit after header() is essential — without it PHP continues executing and
+// could render the login page before the browser follows the redirect.
 if (!empty($_SESSION['user'])) {
     header('Location: dashboard/index.php');
     exit;
 }
 
-// Holds the error message shown in the callout box; null means no error yet
+// Holds the error message shown in the callout; null means no error yet
 $error = null;
 
 // ── HANDLE FORM SUBMISSION (POST) ────────────────────────────────────────────
-// Only runs when the login form has been submitted; GET requests (first page
-// load) fall straight through to the HTML below.
+// Only runs when the login form is submitted; GET requests (initial page load)
+// fall straight through to the HTML below.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Normalise username: trim whitespace and force lowercase so
     // "Sujan.Ghimire " matches the stored value "sujan.ghimire"
     $username = strtolower(trim($_POST['username'] ?? ''));
 
-    // Password is taken as-is; bcrypt comparison is case-sensitive
+    // Password taken as-is; bcrypt comparison is case-sensitive
     $password = $_POST['password'] ?? '';
 
     // ── BASIC VALIDATION ─────────────────────────────────────────────────────
-    // Catch empty submissions before hitting the database
+    // Catch empty submissions client-side before hitting the database
     if (!$username || !$password) {
         $error = 'Please enter your username and password.';
     } else {
@@ -52,49 +53,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Obtain a PDO connection from the shared factory
         $pdo = db();
 
-        /**
-         * Look up the staff member by username via stored procedure.
-         *
-         * sp_GetStaffByUsername filters to active accounts only
-         * (isStaffActive = TRUE), so deactivated staff cannot log in
-         * even with a correct password.
-         *
-         * Using a prepared statement prevents SQL injection — the username
-         * is passed as a bound parameter, never interpolated into the query.
-         *
-         * @var array|false $user The matched staff row, or false if not found.
-         */
+        // ── DATABASE LOOKUP ───────────────────────────────────────────────────
+        // Look up the staff member via stored procedure.
+        // sp_GetStaffByUsername filters to active accounts only
+        // (isStaffActive = TRUE), so deactivated staff cannot log in
+        // even with a correct password.
+        //
+        // A prepared statement is used to prevent SQL injection —
+        // the username is passed as a bound parameter, never interpolated
+        // directly into the query string.
+        //
+        // @var array|false $user  The matched staff row, or false if not found.
         $stmt = $pdo->prepare("CALL sp_GetStaffByUsername(?)");
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
-        // ── PASSWORD VERIFICATION ─────────────────────────────────────────
-        // password_verify() compares the plain-text submission against the
-        // bcrypt hash stored in the database. It is timing-safe, so it won't
-        // leak whether the username or password was wrong.
+        // ── PASSWORD VERIFICATION ─────────────────────────────────────────────
+        // password_verify() safely compares the plain-text submission against
+        // the bcrypt hash stored in the database. It is timing-safe and will
+        // not reveal whether the username or the password was wrong.
         //
-        // On success:  populate the session with safe fields only.
-        //              The passwordHash is intentionally excluded so it is
-        //              never exposed in serialised session data.
+        // On success: write only the fields the app needs into $_SESSION.
+        //             The passwordHash is deliberately excluded — it must never
+        //             appear in serialised session data.
         //
-        // On failure:  use a generic error message — never reveal whether the
-        //              username exists or if just the password was wrong.
+        // On failure: use a deliberately vague message so attackers cannot
+        //             determine whether the username exists in the system.
         if ($user && password_verify($password, $user['passwordHash'])) {
 
-            // Store only the fields the rest of the app needs
+            // Populate session with the minimum required fields
             $_SESSION['user'] = [
-                'staffId'  => $user['staffId'],  // Used for ownership checks
-                'fullName' => $user['fullName'],  // Displayed in the UI
-                'username' => $user['username'],  // Shown in profile/eyebrow
-                'role'     => $user['role'],      // Drives role-based access (requireRole)
+                'staffId'  => $user['staffId'],   // Used for ownership/permission checks
+                'fullName' => $user['fullName'],   // Displayed in the UI and eyebrow
+                'username' => $user['username'],   // Shown in profile cards
+                'role'     => $user['role'],       // Drives requireRole() access control
             ];
 
-            // Redirect to dashboard; exit prevents further output
+            // Redirect to dashboard; exit prevents any further output
             header('Location: dashboard/index.php');
             exit;
 
         } else {
-            // Deliberately vague: do not confirm whether the username exists
+            // Generic message — never confirm whether the username exists
             $error = 'Invalid username or password.';
         }
     }
@@ -106,79 +106,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EduSync — Login</title>
-<!-- Login-specific styles (card layout, logo, form) -->
+<!-- Login-specific styles: card layout, form, demo panel, back button -->
 <link rel="stylesheet" href="login.css">
 </head>
 <body>
 
-<!-- Outer wrapper centres the card vertically and horizontally -->
+<!-- Full-viewport flex wrapper — centres the card vertically and horizontally -->
 <div class="login-wrap">
   <div class="login-card">
 
-    <!-- ── LOGO / BRANDING ─────────────────────────────────────────────── -->
-    <div class="login-logo">
-      <img src="shared/logo.png" alt="EduSync Logo" class="login-logo-img">
-      <span class="login-logo-name">EduSync</span>
+    <!-- ── TOP ROW ──────────────────────────────────────────────────────────
+         Flex row with the logo on the left and the "← Back to Home" ghost
+         button on the right. Both link to landing.php. -->
+    <div class="login-top-row">
+
+      <!-- Logo: clicking it returns the visitor to the landing page -->
+      <a href="landing.php" class="login-logo">
+        <img src="shared/logo.png" alt="EduSync Logo" class="login-logo-img">
+        <span class="login-logo-name">EduSync</span>
+      </a>
+
+      <!-- Ghost pill button — secondary escape route back to the landing page -->
+      <a href="landing.php" class="login-back-home">&#8592; Back to Home</a>
     </div>
 
-    <!-- Page heading and subheading -->
+    <!-- Page heading and supporting subtitle -->
     <div class="login-title">Welcome back</div>
     <div class="login-sub">Sign in to your school account</div>
 
-    <!-- ── ERROR CALLOUT ───────────────────────────────────────────────── -->
-    <!-- Only rendered when $error is non-null (failed POST attempt) -->
+    <!-- ── ERROR CALLOUT ─────────────────────────────────────────────────────
+         Only rendered when $error is non-null (i.e. a POST attempt failed).
+         htmlspecialchars prevents XSS in case error text ever contains
+         user-supplied input. -->
     <?php if ($error): ?>
       <div class="callout callout-danger" style="margin-bottom:20px;">
-        <!-- htmlspecialchars prevents XSS if error text ever contains user input -->
         ⚠️ <?= htmlspecialchars($error) ?>
       </div>
     <?php endif; ?>
 
-    <!-- ── LOGIN FORM ──────────────────────────────────────────────────── -->
-    <!-- POST to same file; PHP block above handles the submission -->
+    <!-- ── LOGIN FORM ─────────────────────────────────────────────────────────
+         POST to the same file; the PHP block at the top handles the submission. -->
     <form method="POST" action="index.php">
 
-     <!-- Username field -->
-<div class="form-group">
-  <label class="form-label">Username</label>
-  <!-- Re-populate the field after a failed attempt so the user
-       doesn't have to retype their username -->
-  <input
-    class="form-input"
-    type="text"
-    name="username"
-    placeholder="e.g. sujan.ghimire"
-    value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
-    autofocus
-  >
-</div>
+      <!-- Username field -->
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input
+          class="form-input"
+          type="text"
+          name="username"
+          placeholder="e.g. sujan.ghimire"
+          value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
+          autofocus
+        >
+        <!-- value re-populates the field after a failed attempt so the user
+             doesn't have to retype their username.
+             autofocus moves the cursor here automatically on page load. -->
+      </div>
 
-<!-- Password field — type="password" masks the input -->
-<div class="form-group">
-  <label class="form-label">Password</label>
-  <!-- Password is intentionally NOT re-populated after failure;
-       the user must retype it for security -->
-  <input
-    class="form-input"
-    type="password"
-    name="password"
-    placeholder="Enter your password"
-  >
-</div>
+      <!-- Password field — type="password" masks the characters -->
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input
+          class="form-input"
+          type="password"
+          name="password"
+          placeholder="Enter your password"
+        >
+        <!-- Password is intentionally NOT re-populated after a failed attempt;
+             the user must retype it for security. -->
+      </div>
+
       <!-- Full-width submit button -->
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;">
         Sign In
       </button>
     </form>
 
-    <!-- ── DEMO CREDENTIALS PANEL ──────────────────────────────────────── -->
-    <!-- Displayed for marking/testing purposes; remove before production -->
+    <!-- ── DEMO CREDENTIALS PANEL ────────────────────────────────────────────
+         Displayed for marking/testing purposes only.
+         Remove this entire block before deploying to production.
+         Inline styles are used here because this panel is a temporary
+         fixture — extracting it to login.css would imply permanence. -->
     <div style="margin-top:16px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);">
 
-      <!-- Panel heading -->
+      <!-- Panel heading: small all-caps label -->
       <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px;">Demo Accounts</div>
 
-      <!-- One row per demo account: username on the left, role on the right -->
+      <!-- One row per demo account: username left, role right -->
       <div style="display:flex;flex-direction:column;gap:5px;">
         <div style="display:flex;justify-content:space-between;font-size:.78rem;">
           <span style="color:var(--text);">sujan.ghimire</span>
@@ -194,13 +209,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
       </div>
 
-      <!-- Shared password note, separated by a subtle top border -->
+      <!-- Shared password note, visually separated by a top border -->
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.75rem;color:var(--text-muted);">
         Password for all: <code>password123</code>
       </div>
-    </div>
+    </div><!-- /.demo panel -->
 
-    <!-- ── FOOTER ──────────────────────────────────────────────────────── -->
+    <!-- ── FOOTER ────────────────────────────────────────────────────────────
+         Small copyright line at the bottom of the card. Purely informational. -->
     <div class="login-footer">
       <p>&copy; 2026 EduSync &mdash; Student Record System.</p>
     </div>
