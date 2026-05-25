@@ -1,80 +1,123 @@
 /* ============================================================
    login.css — EduSync Login Page
    Self-contained, no shared CSS needed.
+   Styles the centred login card, form fields, demo credentials
+   panel, error callout, and submit button.
    @author Sujan Ghimire
    ============================================================ */
 
+/* Google Fonts: Inter only — lighter than the dashboard import
+   since no monospace font is needed on the login page */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* ── RESET ── */
+
+/* ════════════════════════════════════════════════════════════════
+   RESET
+   Strip default browser margin/padding; enforce border-box so
+   padding never bleeds outside a declared width.
+════════════════════════════════════════════════════════════════ */
 *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
+
+/* Dark base matching the dashboard theme — no CSS variables needed
+   here since this is a single-purpose page with no theme switching */
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: #111110;
-  color: #f0ede5;
+  background: #111110;   /* Deepest background level */
+  color: #f0ede5;        /* Warm off-white primary text */
   min-height: 100vh;
   line-height: 1.6;
 }
 
-/* ── LAYOUT ── */
+
+/* ════════════════════════════════════════════════════════════════
+   LAYOUT
+   Full-viewport flex container that centres the login card both
+   horizontally and vertically regardless of screen height.
+   padding: 20px prevents the card from touching viewport edges
+   on very small screens.
+════════════════════════════════════════════════════════════════ */
 .login-wrap {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  align-items: center;       /* Vertical centre */
+  justify-content: center;   /* Horizontal centre */
+  padding: 20px;             /* Safe margin on narrow/short viewports */
 }
 
-/* ── CARD ── */
+
+/* ════════════════════════════════════════════════════════════════
+   LOGIN CARD
+   The single white-surface panel that contains everything.
+   max-width: 420px keeps the form comfortable to read and fill.
+   Large box-shadow gives it depth against the dark page background.
+════════════════════════════════════════════════════════════════ */
 .login-card {
-  background: #1c1b18;
-  border: 1px solid #2e2c27;
-  border-radius: 18px;
-  padding: 44px 40px;
-  width: 100%;
-  max-width: 420px;
-  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  background: #1c1b18;                    /* Mid-level surface (one step above --bg) */
+  border: 1px solid #2e2c27;             /* Subtle border to define card edges */
+  border-radius: 18px;                    /* Softer rounding than dashboard cards */
+  padding: 44px 40px;                     /* Generous internal whitespace */
+  width: 100%;                            /* Stretches to fill narrow viewports */
+  max-width: 420px;                       /* Caps width on wider screens */
+  box-shadow: 0 24px 60px rgba(0,0,0,.5); /* Deep shadow to lift card off the page */
 }
 
-/* ── LOGO ── */
+
+/* ════════════════════════════════════════════════════════════════
+   LOGO ROW
+   Image + "EduSync" wordmark side by side above the headings.
+   !important overrides are used on the image because browser
+   defaults or CMS-injected styles can resize logo images
+   unexpectedly in some environments.
+════════════════════════════════════════════════════════════════ */
 .login-logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 32px;
+  margin-bottom: 32px;   /* Space between logo and "Welcome back" heading */
 }
 .login-logo-img {
-  width: 40px !important;
+  width: 40px !important;        /* !important guards against external style overrides */
   height: 40px !important;
   max-width: 40px !important;
   max-height: 40px !important;
-  object-fit: contain;
-  flex-shrink: 0;
-  display: block;
+  object-fit: contain;           /* Scale image down without cropping */
+  flex-shrink: 0;                /* Prevent the image from compressing in the flex row */
+  display: block;                /* Remove inline-image baseline gap */
 }
 .login-logo-name {
   font-size: 1.25rem;
   font-weight: 700;
   color: #f0ede5;
-  letter-spacing: -.02em;
+  letter-spacing: -.02em;   /* Tight tracking for a bold wordmark feel */
 }
 
-/* ── HEADINGS ── */
+
+/* ════════════════════════════════════════════════════════════════
+   CARD HEADINGS
+   Two-line block: large title + muted subtitle.
+   Placed below the logo and above the error callout / form.
+════════════════════════════════════════════════════════════════ */
 .login-title {
   font-size: 1.6rem;
   font-weight: 700;
   color: #f0ede5;
-  letter-spacing: -.03em;
+  letter-spacing: -.03em;   /* Tighter tracking for large display text */
   margin-bottom: 6px;
 }
 .login-sub {
   font-size: .875rem;
-  color: #8a8880;
-  margin-bottom: 32px;
+  color: #8a8880;            /* Muted — secondary context text */
+  margin-bottom: 32px;       /* Space before the form or error callout */
 }
 
-/* ── ERROR ── */
+
+/* ════════════════════════════════════════════════════════════════
+   ERROR CALLOUT
+   Red-tinted banner shown when the login attempt fails.
+   Only rendered by PHP when $error is non-null.
+   Left border accent visually connects it to the danger colour.
+════════════════════════════════════════════════════════════════ */
 .callout-danger {
   display: flex;
   gap: 10px;
@@ -83,13 +126,19 @@ body {
   border-radius: 8px;
   font-size: .855rem;
   margin-bottom: 20px;
-  background: #3b0f0f;
-  border-left: 3px solid #f87171;
-  color: #f87171;
+  background: #3b0f0f;              /* Dark red surface */
+  border-left: 3px solid #f87171;  /* Bright red accent border */
+  color: #f87171;                   /* Red text to match the border */
 }
 
-/* ── FORM ── */
-.form-group { margin-bottom: 18px; }
+
+/* ════════════════════════════════════════════════════════════════
+   FORM ELEMENTS
+   Two fields: Username (text) and Password (password).
+   Slightly larger padding than the dashboard form inputs to give
+   the login page a more spacious, welcoming feel.
+════════════════════════════════════════════════════════════════ */
+.form-group { margin-bottom: 18px; }   /* Vertical gap between each label+input pair */
 
 .form-label {
   display: block;
@@ -97,28 +146,37 @@ body {
   font-weight: 600;
   margin-bottom: 6px;
   color: #f0ede5;
-  letter-spacing: .01em;
+  letter-spacing: .01em;   /* Very slight tracking for small all-label text */
 }
 
+/* Text input (username) and password input share this class */
 .form-input {
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px 14px;                 /* Slightly taller than dashboard inputs */
   border: 1px solid #2e2c27;
   border-radius: 8px;
-  background: #242320;
+  background: #242320;                /* Slightly lighter than the card surface */
   color: #f0ede5;
   font-size: .9rem;
   font-family: 'Inter', system-ui, sans-serif;
-  outline: none;
+  outline: none;                      /* Remove browser default — custom focus ring below */
   transition: border-color .15s, box-shadow .15s;
 }
-.form-input::placeholder { color: #8a8880; }
+.form-input::placeholder { color: #8a8880; }  /* Muted placeholder hint text */
+
+/* Blue focus ring matching the dashboard accent colour */
 .form-input:focus {
   border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(96,165,250,.2);
+  box-shadow: 0 0 0 3px rgba(96,165,250,.2);   /* Semi-transparent glow */
 }
 
-/* ── BUTTON ── */
+
+/* ════════════════════════════════════════════════════════════════
+   SUBMIT BUTTON
+   Full-width primary button below the password field.
+   Three-state interaction: default → hover (lift + glow) → active
+   (snap back down) to give satisfying tactile feedback.
+════════════════════════════════════════════════════════════════ */
 .btn-primary {
   display: flex;
   align-items: center;
@@ -126,7 +184,7 @@ body {
   width: 100%;
   padding: 11px 20px;
   border-radius: 8px;
-  background: #60a5fa;
+  background: #60a5fa;                /* Blue accent */
   color: #fff;
   font-size: .9rem;
   font-weight: 600;
@@ -134,24 +192,34 @@ body {
   border: none;
   cursor: pointer;
   transition: background .15s, box-shadow .15s, transform .1s;
-  margin-top: 8px;
+  margin-top: 8px;                    /* Extra gap between last input and button */
   letter-spacing: .01em;
 }
+/* Hover: lighter blue + shadow + subtle upward lift */
 .btn-primary:hover {
   background: #93c5fd;
   box-shadow: 0 4px 16px rgba(96,165,250,.35);
   transform: translateY(-1px);
 }
+/* Active/click: snap the lift back to baseline for a press effect */
 .btn-primary:active { transform: translateY(0); }
 
-/* ── DEMO BOX ── */
+
+/* ════════════════════════════════════════════════════════════════
+   DEMO CREDENTIALS PANEL
+   Shown below the form for marking/testing purposes.
+   Lists three demo accounts (username + role) and a shared password.
+   Should be removed before deploying to production.
+════════════════════════════════════════════════════════════════ */
 .demo-box {
   margin-top: 20px;
   padding: 14px 16px;
-  background: #242320;
+  background: #242320;         /* Slightly lighter than the card — creates a nested look */
   border-radius: 10px;
   border: 1px solid #2e2c27;
 }
+
+/* Small all-caps "DEMO ACCOUNTS" label above the rows */
 .demo-box-title {
   font-size: .68rem;
   font-weight: 600;
@@ -160,6 +228,8 @@ body {
   color: #8a8880;
   margin-bottom: 10px;
 }
+
+/* One row per demo account: username left-aligned, role right-aligned */
 .demo-row {
   display: flex;
   justify-content: space-between;
@@ -167,26 +237,35 @@ body {
   font-size: .8rem;
   padding: 4px 0;
 }
-.demo-row span:first-child { color: #f0ede5; font-weight: 500; }
-.demo-row span:last-child  { color: #8a8880; font-size: .75rem; }
+.demo-row span:first-child { color: #f0ede5; font-weight: 500; }   /* Username — primary colour */
+.demo-row span:last-child  { color: #8a8880; font-size: .75rem; }  /* Role — muted colour */
+
+/* Password note below the account rows, separated by a top border */
 .demo-pass {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid #2e2c27;
+  border-top: 1px solid #2e2c27;   /* Thin rule between account list and password */
   font-size: .78rem;
   color: #8a8880;
 }
+
+/* Inline code pill for the shared password value */
 .demo-pass code {
-  font-family: 'Courier New', monospace;
-  background: #1c1b18;
-  color: #60a5fa;
+  font-family: 'Courier New', monospace;   /* Fallback mono; no JetBrains Mono on login page */
+  background: #1c1b18;                     /* Card surface — recessed look inside the demo box */
+  color: #60a5fa;                          /* Blue accent to highlight the credential */
   padding: 2px 7px;
   border-radius: 4px;
   font-size: .78rem;
   border: 1px solid #2e2c27;
 }
 
-/* ── FOOTER ── */
+
+/* ════════════════════════════════════════════════════════════════
+   FOOTER
+   Small copyright line at the bottom of the card.
+   Centred and muted — purely informational, no interactive elements.
+════════════════════════════════════════════════════════════════ */
 .login-footer {
   margin-top: 24px;
   font-size: .75rem;
@@ -195,8 +274,16 @@ body {
   line-height: 1.5;
 }
 
-/* ── RESPONSIVE ── */
+
+/* ════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   On very small screens (≤480px):
+     - Reduce card padding so it doesn't feel cramped
+     - Slightly smaller title to prevent line wrapping
+   The card is already full-width on mobile via width:100% above,
+   so no grid/column changes are needed.
+════════════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
-  .login-card { padding: 32px 22px; border-radius: 14px; }
-  .login-title { font-size: 1.35rem; }
+  .login-card  { padding: 32px 22px; border-radius: 14px; }   /* Tighter padding + softer corners */
+  .login-title { font-size: 1.35rem; }                         /* Scale down to prevent wrapping */
 }
