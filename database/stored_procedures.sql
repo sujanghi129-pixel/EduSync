@@ -213,6 +213,7 @@ END$$
 
 DELIMITER ;
 
+
 -- ============================================================
 --  STORED PROCEDURES — Grade Management (Roshni Karki)
 -- ============================================================
@@ -575,87 +576,6 @@ BEGIN
     FROM tblAttendance
     WHERE classId = p_classId AND date = p_date
     GROUP BY status;
-END$$
-
-DELIMITER ;
--- ============================================================
---  STORED PROCEDURES — Login Protection (Brute-Force Guard)
---  Used by shared/LoginGuard.php
--- ============================================================
-
-DELIMITER $$
-
--- ── sp_GetLoginStatus ────────────────────────────────────────
--- Returns the current fail count and lockout state for a username.
--- Called before every login attempt by LoginGuard::check().
---
--- @param p_username VARCHAR(50) - The normalised (lowercase) username.
-CREATE PROCEDURE sp_GetLoginStatus(IN p_username VARCHAR(50))
-BEGIN
-    SELECT
-        COALESCE(failCount, 0)                            AS failCount,
-        lockedUntil,
-        (lockedUntil IS NOT NULL AND lockedUntil > NOW()) AS isLocked
-    FROM tblLoginAttempts
-    WHERE username = p_username;
-END$$
-
--- ── sp_RecordLoginFailure ────────────────────────────────────
--- Increments the failure counter for a username.
--- Automatically locks the account for p_lockMinutes minutes once
--- p_maxFails consecutive failures have been recorded.
--- Uses INSERT … ON DUPLICATE KEY UPDATE so no row needs to exist first.
---
--- @param p_username    VARCHAR(50) - The username that failed.
--- @param p_ipAddress   VARCHAR(45) - Client IP (for audit log).
--- @param p_maxFails    TINYINT     - Failures before lockout (e.g. 5).
--- @param p_lockMinutes INT         - Lockout duration in minutes (e.g. 15).
-CREATE PROCEDURE sp_RecordLoginFailure(
-    IN p_username    VARCHAR(50),
-    IN p_ipAddress   VARCHAR(45),
-    IN p_maxFails    TINYINT,
-    IN p_lockMinutes INT
-)
-BEGIN
-    INSERT INTO tblLoginAttempts (username, failCount, lockedUntil, lastAttempt, ipAddress)
-    VALUES (p_username, 1, NULL, NOW(), p_ipAddress)
-    ON DUPLICATE KEY UPDATE
-        failCount   = failCount + 1,
-        lastAttempt = NOW(),
-        ipAddress   = p_ipAddress,
-        lockedUntil = IF(
-            failCount + 1 >= p_maxFails,
-            DATE_ADD(NOW(), INTERVAL p_lockMinutes MINUTE),
-            lockedUntil
-        );
-END$$
-
--- ── sp_ClearLoginFailures ────────────────────────────────────
--- Resets the failure counter and removes the lockout for a username.
--- Called immediately after a successful login by LoginGuard::clearFailures().
---
--- @param p_username VARCHAR(50) - The username that logged in successfully.
-CREATE PROCEDURE sp_ClearLoginFailures(IN p_username VARCHAR(50))
-BEGIN
-    UPDATE tblLoginAttempts
-    SET failCount   = 0,
-        lockedUntil = NULL,
-        lastAttempt = NOW()
-    WHERE username = p_username;
-END$$
-
--- ── sp_PruneLoginAttempts ────────────────────────────────────
--- Housekeeping: removes rows whose last attempt is older than
--- p_retainDays days and whose lockout (if any) has already expired.
--- Safe to run on a daily cron job:
---   mysql -u root edusync -e "CALL sp_PruneLoginAttempts(30);"
---
--- @param p_retainDays INT - Number of days to retain rows (e.g. 30).
-CREATE PROCEDURE sp_PruneLoginAttempts(IN p_retainDays INT)
-BEGIN
-    DELETE FROM tblLoginAttempts
-    WHERE lastAttempt < DATE_SUB(NOW(), INTERVAL p_retainDays DAY)
-      AND (lockedUntil IS NULL OR lockedUntil < NOW());
 END$$
 
 DELIMITER ;
