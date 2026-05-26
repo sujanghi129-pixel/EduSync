@@ -11,12 +11,47 @@
  */
 
 /**
+ * Configures secure session cookie flags and starts (or resumes) the session.
+ *
+ * Must be called before any session_start() so the cookie attributes are set
+ * before PHP writes the Set-Cookie header. Calling it multiple times within
+ * a request is safe — session_status() guards against double-starting.
+ *
+ * Flags applied:
+ *   lifetime  0        — cookie expires when the browser closes (no persistent cookie)
+ *   path      /        — cookie sent on every request to this host
+ *   domain    ''       — current host only; no subdomain sharing
+ *   secure    true     — cookie only sent over HTTPS
+ *   httponly  true     — JavaScript cannot read the cookie (blocks XSS theft)
+ *   samesite  Strict   — cookie not sent on cross-site requests (blocks CSRF)
+ *
+ * Note: set secure=false if running on plain HTTP in local development;
+ * on production the server must serve over HTTPS for the Secure flag to matter.
+ *
+ * @return void
+ */
+function startSecureSession(): void {
+    if (session_status() !== PHP_SESSION_NONE) return;
+
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => true,
+        'httponly' => true,
+        'samesite' => 'Strict',
+    ]);
+
+    session_start();
+}
+
+/**
  * Protects a page by redirecting unauthenticated users to the login page.
  *
  * @return void
  */
 function requireLogin(): void {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    startSecureSession();
     if (empty($_SESSION['user'])) {
         header('Location: ' . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/../index.php');
         exit;

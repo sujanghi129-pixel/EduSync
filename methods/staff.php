@@ -195,6 +195,56 @@ class Staff {
         return password_verify($password, $passwordHash);
     }
 
+    // ── PASSWORD STRENGTH ─────────────────────────────────
+
+    /**
+     * Validates a plaintext password against EduSync's password policy.
+     *
+     * Policy (aligned with NIST SP 800-63B):
+     *   - Minimum 8 characters
+     *   - At least one uppercase letter (A–Z)
+     *   - At least one lowercase letter (a–z)
+     *   - At least one digit (0–9)
+     *   - At least one special character (!@#$%^&*…)
+     *   - Must not appear in the built-in list of common passwords
+     *
+     * Returns null on success, or a human-readable error string on failure.
+     * Centralising this here means add.php and edit.php stay in sync automatically.
+     *
+     * @param  string      $password - The plaintext password to validate.
+     * @return string|null  null if valid, error message string if invalid.
+     */
+    public function validatePasswordStrength(string $password): ?string {
+        if (strlen($password) < 8) {
+            return 'Password must be at least 8 characters.';
+        }
+        if (!preg_match('/[A-Z]/', $password)) {
+            return 'Password must contain at least one uppercase letter.';
+        }
+        if (!preg_match('/[a-z]/', $password)) {
+            return 'Password must contain at least one lowercase letter.';
+        }
+        if (!preg_match('/[0-9]/', $password)) {
+            return 'Password must contain at least one number.';
+        }
+        if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+            return 'Password must contain at least one special character (e.g. !@#$%).';
+        }
+
+        // Block the most commonly used passwords to stop trivially guessable choices
+        // that technically pass the rules above (e.g. "Password1!").
+        $commonPasswords = [
+            'Password1!', 'Password1@', 'Welcome1!', 'Admin1234!',
+            'Qwerty123!', 'Letmein1!', 'Changeme1!', 'Abc12345!',
+            'Iloveyou1!', 'Sunshine1!', 'School123!', 'Summer2024!',
+        ];
+        if (in_array($password, $commonPasswords, true)) {
+            return 'That password is too common. Please choose a more unique one.';
+        }
+
+        return null; // Password passed all checks
+    }
+
     /**
      * Counts the total number of staff members with the Administrator role.
      * Used to enforce the minimum-one-admin rule before deletion or deactivation.

@@ -120,3 +120,20 @@ INSERT INTO tblAttendance (studentId, classId, markedById, date, status, notes) 
 (3, 1, 2, CURDATE(), 'absent',  'Sick leave'),
 (4, 2, 3, CURDATE(), 'present', NULL),
 (5, 2, 3, CURDATE(), 'present', NULL);
+-- ── tblLoginAttempts ─────────────────────────────────────────
+-- Tracks consecutive login failures per username.
+-- Used by LoginGuard.php to enforce account lockout after
+-- MAX_FAILS consecutive failures.
+--
+-- failCount    — resets to 0 on successful login
+-- lockedUntil  — set to NOW() + lockout window on 5th failure;
+--                NULL while the account is not currently locked
+-- lastAttempt  — lets sp_PruneLoginAttempts clean up stale rows
+-- ipAddress    — stored for audit purposes only
+CREATE TABLE IF NOT EXISTS tblLoginAttempts (
+    username      VARCHAR(50)  NOT NULL PRIMARY KEY,
+    failCount     TINYINT      NOT NULL DEFAULT 0,
+    lockedUntil   DATETIME     DEFAULT NULL,
+    lastAttempt   DATETIME     NOT NULL DEFAULT NOW(),
+    ipAddress     VARCHAR(45)  DEFAULT NULL
+);

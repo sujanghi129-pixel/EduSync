@@ -70,8 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Username is required.';
     elseif (!$role)
         $error = 'Please select a role.';
-    elseif ($password && strlen($password) < 6)
-        $error = 'Password must be at least 6 characters.';
+    elseif ($password && ($pwError = $staffClass->validatePasswordStrength($password)) !== null)
+        $error = $pwError;
     elseif ($staffClass->usernameExists($username, $id))
         $error = "Username \"$username\" is already taken.";
 
@@ -185,9 +185,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <div class="form-group">
             <label class="form-label">Password</label>
             <input class="form-input"
+                   id="pw-input"
                    name="password"
                    type="password"
-                   placeholder="Leave blank to keep current">
+                   placeholder="Leave blank to keep current"
+                   autocomplete="new-password"
+                   oninput="updateStrength(this.value)">
+
+            <!-- Strength bar (hidden until typing starts) -->
+            <div id="pw-strength-wrap" style="display:none;margin-top:6px;">
+              <div style="height:4px;border-radius:2px;background:var(--color-border-tertiary);overflow:hidden;">
+                <div id="pw-bar" style="height:100%;width:0%;border-radius:2px;transition:width .25s,background .25s;"></div>
+              </div>
+              <ul id="pw-reqs" style="margin:8px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;">
+                <li id="req-len"     style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; 8+ characters</li>
+                <li id="req-upper"   style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Uppercase letter</li>
+                <li id="req-lower"   style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Lowercase letter</li>
+                <li id="req-digit"   style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Number</li>
+                <li id="req-special" style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Special character</li>
+              </ul>
+            </div>
           </div>
 
           <!-- Role dropdown -->
@@ -237,6 +254,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!-- Shared authentication/navigation JavaScript -->
 <script src="../shared/auth.js"></script>
+
+<script>
+/**
+ * updateStrength(value)
+ *
+ * Same logic as add.php. The wrapper div is hidden until the user
+ * starts typing so it doesn't clutter the form for admins who are
+ * only updating a name or role.
+ *
+ * Authoritative check is Staff::validatePasswordStrength() server-side.
+ */
+function updateStrength(val) {
+    const wrap = document.getElementById('pw-strength-wrap');
+    if (wrap) wrap.style.display = val.length ? 'block' : 'none';
+
+    const checks = {
+        'req-len':     val.length >= 8,
+        'req-upper':   /[A-Z]/.test(val),
+        'req-lower':   /[a-z]/.test(val),
+        'req-digit':   /[0-9]/.test(val),
+        'req-special': /[^A-Za-z0-9]/.test(val),
+    };
+
+    let passed = 0;
+    for (const [id, ok] of Object.entries(checks)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (ok) {
+            el.innerHTML = el.innerHTML.replace('\u25CB', '\u25CF');
+            el.style.color = 'var(--color-text-success)';
+            passed++;
+        } else {
+            el.innerHTML = el.innerHTML.replace('\u25CF', '\u25CB');
+            el.style.color = 'var(--color-text-secondary)';
+        }
+    }
+
+    const bar = document.getElementById('pw-bar');
+    if (!bar) return;
+    const pct   = (passed / 5) * 100;
+    const color = passed <= 2 ? 'var(--color-background-danger)'
+                : passed <= 3 ? 'var(--color-background-warning)'
+                :               'var(--color-background-success)';
+    bar.style.width      = pct + '%';
+    bar.style.background = color;
+}
+</script>
 
 </body>
 </html>

@@ -54,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please select a role.';
     elseif (!$password)
         $error = 'Password is required for new accounts.';
-    elseif (strlen($password) < 6)
-        $error = 'Password must be at least 6 characters.';
+    elseif (($pwError = $staffClass->validatePasswordStrength($password)) !== null)
+        $error = $pwError;
     elseif ($staffClass->usernameExists($username))
         $error = "Username \"$username\" is already taken.";
 
@@ -172,9 +172,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               Password <span class="req">*</span>
             </label>
             <input class="form-input" 
+                   id="pw-input"
                    name="password" 
                    type="password" 
-                   placeholder="Min 6 characters">
+                   placeholder="Min 8 characters"
+                   autocomplete="new-password"
+                   oninput="updateStrength(this.value)">
+
+            <!-- Strength bar -->
+            <div style="margin-top:6px;height:4px;border-radius:2px;background:var(--color-border-tertiary);overflow:hidden;">
+              <div id="pw-bar" style="height:100%;width:0%;border-radius:2px;transition:width .25s,background .25s;"></div>
+            </div>
+
+            <!-- Requirements checklist -->
+            <ul id="pw-reqs" style="margin:8px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;">
+              <li id="req-len"    style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; 8+ characters</li>
+              <li id="req-upper"  style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Uppercase letter</li>
+              <li id="req-lower"  style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Lowercase letter</li>
+              <li id="req-digit"  style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Number</li>
+              <li id="req-special" style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Special character</li>
+            </ul>
           </div>
 
           <!-- Role dropdown -->
@@ -223,6 +240,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!-- Shared JavaScript for authentication/navigation -->
 <script src="../shared/auth.js"></script>
+
+<script>
+/**
+ * updateStrength(value)
+ *
+ * Evaluates the password typed into #pw-input against the five policy
+ * requirements and updates:
+ *   - Each <li> in #pw-reqs  (hollow circle → filled green tick)
+ *   - The #pw-bar width and colour (red → amber → green)
+ *
+ * This is purely cosmetic feedback; the authoritative check is
+ * Staff::validatePasswordStrength() on the server.
+ */
+function updateStrength(val) {
+    const checks = {
+        'req-len':     val.length >= 8,
+        'req-upper':   /[A-Z]/.test(val),
+        'req-lower':   /[a-z]/.test(val),
+        'req-digit':   /[0-9]/.test(val),
+        'req-special': /[^A-Za-z0-9]/.test(val),
+    };
+
+    let passed = 0;
+    for (const [id, ok] of Object.entries(checks)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (ok) {
+            el.innerHTML = el.innerHTML.replace('\u25CB', '\u25CF');
+            el.style.color = 'var(--color-text-success)';
+            passed++;
+        } else {
+            el.innerHTML = el.innerHTML.replace('\u25CF', '\u25CB');
+            el.style.color = 'var(--color-text-secondary)';
+        }
+    }
+
+    const bar = document.getElementById('pw-bar');
+    if (!bar) return;
+    const pct   = (passed / 5) * 100;
+    const color = passed <= 2 ? 'var(--color-background-danger)'
+                : passed <= 3 ? 'var(--color-background-warning)'
+                :               'var(--color-background-success)';
+    bar.style.width      = pct + '%';
+    bar.style.background = color;
+}
+</script>
 
 </body>
 </html>

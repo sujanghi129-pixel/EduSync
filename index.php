@@ -13,11 +13,17 @@
  * @author  Sujan Ghimire
  */
 
-// Start (or resume) the PHP session so $_SESSION is available throughout
-session_start();
+// Load auth helpers — provides startSecureSession() and requireLogin()
+require_once __DIR__ . '/shared/auth.php';
 
 // Load the database connection factory function db()
 require_once __DIR__ . '/shared/db.php';
+
+// Load the brute-force / rate-limiting guard
+require_once __DIR__ . '/shared/LoginGuard.php';
+
+// Start session with Secure, HttpOnly, SameSite=Strict cookie flags
+startSecureSession();
 
 // ── ALREADY LOGGED IN ────────────────────────────────────────────────────────
 // If a valid session already exists, skip the login form entirely and redirect
@@ -45,57 +51,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
 
     // ── BASIC VALIDATION ─────────────────────────────────────────────────────
-    // Catch empty submissions client-side before hitting the database
+    // Catch empty submissions before hitting the database or the guard
     if (!$username || !$password) {
         $error = 'Please enter your username and password.';
     } else {
 
         // Obtain a PDO connection from the shared factory
-        $pdo = db();
+        $pdo   = db();
+        $guard = new LoginGuard($pdo);
 
-        // ── DATABASE LOOKUP ───────────────────────────────────────────────────
-        // Look up the staff member via stored procedure.
-        // sp_GetStaffByUsername filters to active accounts only
-        // (isStaffActive = TRUE), so deactivated staff cannot log in
-        // even with a correct password.
-        //
-        // A prepared statement is used to prevent SQL injection —
-        // the username is passed as a bound parameter, never interpolated
-        // directly into the query string.
-        //
-        // @var array|false $user  The matched staff row, or false if not found.
-        $stmt = $pdo->prepare("CALL sp_GetStaffByUsername(?)");
-        $stmt->execute([$username]);
-        $user = $stmt->fetch();
-
-        // ── PASSWORD VERIFICATION ─────────────────────────────────────────────
-        // password_verify() safely compares the plain-text submission against
-        // the bcrypt hash stored in the database. It is timing-safe and will
-        // not reveal whether the username or the password was wrong.
-        //
-        // On success: write only the fields the app needs into $_SESSION.
-        //             The passwordHash is deliberately excluded — it must never
-        //             appear in serialised session data.
-        //
-        // On failure: use a deliberately vague message so attackers cannot
-        //             determine whether the username exists in the system.
-        if ($user && password_verify($password, $user['passwordHash'])) {
-
-            // Populate session with the minimum required fields
-            $_SESSION['user'] = [
-                'staffId'  => $user['staffId'],   // Used for ownership/permission checks
-                'fullName' => $user['fullName'],   // Displayed in the UI and eyebrow
-                'username' => $user['username'],   // Shown in profile cards
-                'role'     => $user['role'],       // Drives requireRole() access control
-            ];
-
-            // Redirect to dashboard; exit prevents any further output
-            header('Location: dashboard/index.php');
-            exit;
-
+        // ── LOCKOUT CHECK ─────────────────────────────────────────────────────
+        // Reject immediately if the account is currently locked.
+        // This runs BEFORE password_verify() so locked accounts never
+        // trigger a bcrypt comparison (avoids timing-based enumeration).
+        $lockStatus = $guard->check($username);
+        if ($lockStatus['locked']) {
+            $error = $lockStatus['message'];
         } else {
-            // Generic message — never confirm whether the username exists
-            $error = 'Invalid username or password.';
+
+            // ── DATABASE LOOKUP ───────────────────────────────────────────────
+            // Look up the staff member via stored procedure.
+            // sp_GetStaffByUsername filters to active accounts only
+            // (isStaffActive = TRUE), so deactivated staff cannot log in
+            // even with a correct password.
+            $stmt = $pdo->prepare("CALL sp_GetStaffByUsername(?)");
+            $stmt->execute([$username]);
+            $user = $stmt->fetch();
+
+            // ── PASSWORD VERIFICATION ─────────────────────────────────────────
+            // password_verify() safely compares the plain-text submission against
+            // the bcrypt hash stored in the database. It is timing-safe and will
+            // not reveal whether the username or the password was wrong.
+            //
+            // On success: clear the failure counter and write the session.
+            // On failure: record the attempt; the guard message includes a
+            //             "X attempts remaining" hint for usability.
+            if ($user && password_verify($password, $user['passwordHash'])) {
+
+                // Clear any previous failure counter for this username
+                $guard->clearFailures($username);
+
+                // Regenerate the session ID on privilege escalation.
+                // Invalidates the pre-login session ID so an attacker who
+                // obtained it (e.g. via session fixation) cannot reuse it.
+                // true = delete the old session file from the server.
+                session_regenerate_id(true);
+
+                // Populate session with the minimum required fields.
+                // The passwordHash is deliberately excluded — it must never
+                // appear in serialised session data.
+                $_SESSION['user'] = [
+                    'staffId'  => $user['staffId'],   // Used for ownership/permission checks
+                    'fullName' => $user['fullName'],   // Displayed in the UI and eyebrow
+                    'username' => $user['username'],   // Shown in profile cards
+                    'role'     => $user['role'],       // Drives requireRole() access control
+                ];
+
+                // Redirect to dashboard; exit prevents any further output
+                header('Location: dashboard/index.php');
+                exit;
+
+            } else {
+                // Record the failure and get an updated error message
+                $result = $guard->recordFailure($username);
+                $error  = $result['message'];
+            }
         }
     }
 }
