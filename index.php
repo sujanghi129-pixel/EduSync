@@ -77,6 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("CALL sp_GetStaffByUsername(?)");
             $stmt->execute([$username]);
             $user = $stmt->fetch();
+            // Release the stored procedure result set before any further queries
+            try { while ($stmt->nextRowset()) {} } catch (PDOException $e) {}
+            $stmt->closeCursor();
 
             // ── PASSWORD VERIFICATION ─────────────────────────────────────────
             // password_verify() safely compares the plain-text submission against
@@ -234,17 +237,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Password for all: <code>password123</code>
       </div>
     </div><!-- /.demo panel -->
-
-    <!-- ── PRIVACY NOTICE ───────────────────────────────────────────────────
-         Displayed to all users at the point of login.
-         Satisfies GDPR Article 13 — information to be provided where personal
-         data are collected from the data subject.
-         Keep this notice visible and accurate; update it if the data collected
-         or its purpose ever changes. -->
-    <div class="login-privacy">
-      🔒 <strong>Your data &amp; privacy:</strong>
-      EduSync stores your full name, username, and role solely to manage school staff access. Your data is visible only to Administrators and is never shared with third parties. For questions or to request removal of your data, contact your school Administrator.
-    </div>
 
     <!-- ── FOOTER ────────────────────────────────────────────────────────────
          Small copyright line at the bottom of the card. Purely informational. -->

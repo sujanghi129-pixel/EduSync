@@ -112,6 +112,8 @@ class LoginGuard {
 
         $stmt = $this->pdo->prepare("CALL sp_RecordLoginFailure(?, ?, ?, ?)");
         $stmt->execute([$username, $ip, self::MAX_FAILS, self::LOCK_MINUTES]);
+        try { while ($stmt->nextRowset()) {} } catch (PDOException $e) {}
+        $stmt->closeCursor();
 
         // Re-read the updated status so we can give the user an accurate hint
         $row = $this->getStatus($username);
@@ -144,6 +146,8 @@ class LoginGuard {
     public function clearFailures(string $username): void {
         $stmt = $this->pdo->prepare("CALL sp_ClearLoginFailures(?)");
         $stmt->execute([$username]);
+        try { while ($stmt->nextRowset()) {} } catch (PDOException $e) {}
+        $stmt->closeCursor();
     }
 
     // ─────────────────────────────────────────────────────
@@ -160,6 +164,11 @@ class LoginGuard {
         $stmt = $this->pdo->prepare("CALL sp_GetLoginStatus(?)");
         $stmt->execute([$username]);
         $row = $stmt->fetch();
+        // Drain ALL result sets MySQL stored procedures leave open.
+        // closeCursor() alone is not always sufficient on XAMPP/MySQL —
+        // nextRowset() advances through every pending set until none remain.
+        try { while ($stmt->nextRowset()) {} } catch (PDOException $e) {}
+        $stmt->closeCursor();
         return $row ?: null;
     }
 
