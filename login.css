@@ -284,6 +284,23 @@ body {
    Small copyright line at the bottom of the card.
    Centred and muted — purely informational, no interactive elements.
 ════════════════════════════════════════════════════════════════ */
+.login-privacy {
+  margin-top: 20px;
+  padding: 10px 14px;
+  background: #1a1f2e;               /* Subtle blue-tinted surface to distinguish from demo panel */
+  border: 1px solid #2a3450;         /* Matches the blue-tinted tone */
+  border-radius: 10px;
+  font-size: .75rem;
+  color: #8a8880;                    /* Muted — same as login-footer secondary text */
+  line-height: 1.55;
+  text-align: center;
+}
+
+.login-privacy strong {
+  color: #a0aac0;                    /* Slightly brighter than body text for the label */
+}
+
+
 .login-footer {
   margin-top: 24px;
   font-size: .75rem;

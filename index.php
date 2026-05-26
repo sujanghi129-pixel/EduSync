@@ -20,7 +20,7 @@ require_once __DIR__ . '/shared/auth.php';
 require_once __DIR__ . '/shared/db.php';
 
 // Load the brute-force / rate-limiting guard
-require_once __DIR__ . '/shared/LoginGuard.php';
+require_once __DIR__ . '/methods/LoginGuard.php';
 
 // Start session with Secure, HttpOnly, SameSite=Strict cookie flags
 startSecureSession();
@@ -234,6 +234,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Password for all: <code>password123</code>
       </div>
     </div><!-- /.demo panel -->
+
+    <!-- ── PRIVACY NOTICE ───────────────────────────────────────────────────
+         Displayed to all users at the point of login.
+         Satisfies GDPR Article 13 — information to be provided where personal
+         data are collected from the data subject.
+         Keep this notice visible and accurate; update it if the data collected
+         or its purpose ever changes. -->
+    <div class="login-privacy">
+      🔒 <strong>Your data &amp; privacy:</strong>
+      EduSync stores your full name, username, and role solely to manage school staff access. Your data is visible only to Administrators and is never shared with third parties. For questions or to request removal of your data, contact your school Administrator.
+    </div>
 
     <!-- ── FOOTER ────────────────────────────────────────────────────────────
          Small copyright line at the bottom of the card. Purely informational. -->
