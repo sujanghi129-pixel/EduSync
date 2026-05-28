@@ -57,23 +57,12 @@ if (!$staff
     header('Location: gate.php');
     exit;
 }
-
-// Set session
-$_SESSION['user'] = [
-    'staffId'  => $staff['staffId'],
-    'fullName' => $staff['fullName'],
-    'username' => $staff['username'],
-    'role'     => $staff['role'],
-];
-
 // Redirect to intended page or default to attendance index
 $return = $_POST['return'] ?? '../index.php';
 // Sanitise to prevent open redirect — only allow relative paths
 if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
     $return = '../index.php';
 }
-
-
 // Set session
 $_SESSION['user'] = [
     'staffId'  => $staff['staffId'],
