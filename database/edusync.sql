@@ -72,6 +72,90 @@ CREATE TABLE tblAttendance (
 );
 -- 7 attributes | int ✅ | string ✅ | boolean ✅ | date ✅
 
+CREATE TABLE IF NOT EXISTS tblLoginAttempts (
+    username      VARCHAR(50)  NOT NULL PRIMARY KEY,
+    failCount     TINYINT      NOT NULL DEFAULT 0,
+    lockedUntil   DATETIME     DEFAULT NULL,
+    lastAttempt   DATETIME     NOT NULL DEFAULT NOW(),
+    ipAddress     VARCHAR(45)  DEFAULT NULL   -- stored for audit purposes only
+);
+
+-- ── sp_GetLoginStatus ────────────────────────────────────────
+-- Returns the current fail count and lockout state for a username.
+-- Called before every login attempt.
+-- ─────────────────────────────────────────────────────────────
+DROP PROCEDURE IF EXISTS sp_GetLoginStatus;
+DELIMITER $$
+CREATE PROCEDURE sp_GetLoginStatus(IN p_username VARCHAR(50))
+BEGIN
+    SELECT
+        COALESCE(failCount, 0)                         AS failCount,
+        lockedUntil,
+        (lockedUntil IS NOT NULL AND lockedUntil > NOW()) AS isLocked
+    FROM tblLoginAttempts
+    WHERE username = p_username;
+END$$
+DELIMITER ;
+
+-- ── sp_RecordLoginFailure ────────────────────────────────────
+-- Increments the failure counter for a username.
+-- Automatically locks the account for p_lockMinutes minutes once
+-- p_maxFails consecutive failures have been recorded.
+-- If no row exists yet, one is inserted (upsert via ON DUPLICATE KEY).
+-- ─────────────────────────────────────────────────────────────
+DROP PROCEDURE IF EXISTS sp_RecordLoginFailure;
+DELIMITER $$
+CREATE PROCEDURE sp_RecordLoginFailure(
+    IN p_username    VARCHAR(50),
+    IN p_ipAddress   VARCHAR(45),
+    IN p_maxFails    TINYINT,
+    IN p_lockMinutes INT
+)
+BEGIN
+    INSERT INTO tblLoginAttempts (username, failCount, lockedUntil, lastAttempt, ipAddress)
+    VALUES (p_username, 1, NULL, NOW(), p_ipAddress)
+    ON DUPLICATE KEY UPDATE
+        failCount   = failCount + 1,
+        lastAttempt = NOW(),
+        ipAddress   = p_ipAddress,
+        lockedUntil = IF(
+            failCount + 1 >= p_maxFails,
+            DATE_ADD(NOW(), INTERVAL p_lockMinutes MINUTE),
+            lockedUntil
+        );
+END$$
+DELIMITER ;
+
+-- ── sp_ClearLoginFailures ────────────────────────────────────
+-- Resets the counter and removes the lockout for a username.
+-- Called immediately after a successful login.
+-- ─────────────────────────────────────────────────────────────
+DROP PROCEDURE IF EXISTS sp_ClearLoginFailures;
+DELIMITER $$
+CREATE PROCEDURE sp_ClearLoginFailures(IN p_username VARCHAR(50))
+BEGIN
+    UPDATE tblLoginAttempts
+    SET failCount   = 0,
+        lockedUntil = NULL,
+        lastAttempt = NOW()
+    WHERE username = p_username;
+END$$
+DELIMITER ;
+
+-- ── sp_PruneLoginAttempts ────────────────────────────────────
+-- Housekeeping: removes rows whose last attempt was more than
+-- p_retainDays days ago. Safe to run on a daily cron job.
+-- ─────────────────────────────────────────────────────────────
+DROP PROCEDURE IF EXISTS sp_PruneLoginAttempts;
+DELIMITER $$
+CREATE PROCEDURE sp_PruneLoginAttempts(IN p_retainDays INT)
+BEGIN
+    DELETE FROM tblLoginAttempts
+    WHERE lastAttempt < DATE_SUB(NOW(), INTERVAL p_retainDays DAY)
+      AND (lockedUntil IS NULL OR lockedUntil < NOW());
+END$$
+DELIMITER ;
+
 -- ============================================================
 --  SAMPLE DATA
 -- ============================================================

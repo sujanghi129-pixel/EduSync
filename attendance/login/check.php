@@ -17,8 +17,13 @@
  * @package EduSync
  * @author  Laxman Giri
  */
-session_start();
+// Load auth helpers — provides startSecureSession()
+require_once __DIR__ . '/../../shared/auth.php';
 require_once __DIR__ . '/../../shared/db.php';
+require_once __DIR__ . '/../../shared/LoginGuard.php';
+
+// Start session with Secure, HttpOnly, SameSite=Strict cookie flags
+startSecureSession();
 
 // Only accept POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -26,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$username = trim($_POST['username'] ?? '');
+$username = strtolower(trim($_POST['username'] ?? ''));
 $password = $_POST['password']      ?? '';
 
 if (!$username || !$password) {
@@ -35,7 +40,18 @@ if (!$username || !$password) {
     exit;
 }
 
-$pdo  = db();
+$pdo   = db();
+$guard = new LoginGuard($pdo);
+
+// ── LOCKOUT CHECK ─────────────────────────────────────────────────────────────
+// Reject before touching credentials if the account is already locked.
+$lockStatus = $guard->check($username);
+if ($lockStatus['locked']) {
+    $_SESSION['login_error'] = $lockStatus['message'];
+    header('Location: gate.php');
+    exit;
+}
+
 $stmt = $pdo->prepare("
     SELECT staffId, fullName, username, passwordHash, role, isStaffActive
     FROM tblStaff
@@ -53,10 +69,20 @@ if (!$staff
     || !$staff['isStaffActive']
     || !in_array($staff['role'], $allowedRoles, true)
 ) {
-    $_SESSION['login_error'] = 'Invalid credentials or insufficient permissions.';
+    // Record the failure and surface the remaining-attempts hint
+    $result = $guard->recordFailure($username);
+    $_SESSION['login_error'] = $result['message'];
     header('Location: gate.php');
     exit;
 }
+
+// ── SUCCESS ───────────────────────────────────────────────────────────────────
+// Clear the failure counter before writing the session
+$guard->clearFailures($username);
+
+// Regenerate the session ID on privilege escalation to prevent session fixation.
+// true = delete the old session file from the server.
+session_regenerate_id(true);
 // Redirect to intended page or default to attendance index
 $return = $_POST['return'] ?? '../index.php';
 // Sanitise to prevent open redirect — only allow relative paths
