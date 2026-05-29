@@ -16,16 +16,17 @@
  */
 session_start();
 
-// Already logged in — go straight to attendance
+// Skip the login form entirely if a valid session already exists
 if (!empty($_SESSION['user'])) {
     header('Location: ../index.php');
     exit;
 }
 
+// Read-once error: display it then clear so it doesn't replay on refresh
 $error  = $_SESSION['login_error'] ?? null;
 unset($_SESSION['login_error']);
 
-// Sanitise return URL (relative only)
+// Sanitise return URL — only relative paths allowed to prevent open redirect
 $return = $_GET['return'] ?? '../index.php';
 if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
     $return = '../index.php';
@@ -57,11 +58,13 @@ if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
   <div class="login-sub">Sign in to access the Attendance module</div>
 
   <?php if ($error): ?>
+    <!-- Error message from check.php (bad credentials, lockout, etc.) -->
     <div class="callout callout-danger" style="margin-bottom:16px;">⚠️ <?= htmlspecialchars($error) ?></div>
   <?php endif; ?>
 
   <div class="card">
     <form method="POST" action="check.php">
+      <!-- Pass the return URL through the form so check.php can redirect back after login -->
       <input type="hidden" name="return" value="<?= htmlspecialchars($return) ?>">
 
       <div class="form-group">

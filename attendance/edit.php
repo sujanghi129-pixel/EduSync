@@ -25,9 +25,11 @@ require_once __DIR__ . '/validation/attendance_validation.php';
 /** @var Attendance $attClass - Middle layer instance */
 $attClass = new Attendance(db());
 
+// id comes from the URL — cast immediately to prevent SQL injection via type confusion
 $id     = (int)($_GET['id'] ?? 0);
 $record = $attClass->getById($id);
 if (!$record) {
+    // Record not found or already deleted — redirect silently
     header('Location: list.php');
     exit;
 }
@@ -38,9 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = $_POST['status'] ?? '';
     $notes  = trim($_POST['notes'] ?? '');
 
+    // Centralised validation keeps rules consistent with add.php
     $errors = validateAttendanceUpdate($status, $notes);
 
     if (!$errors) {
+        // Clear notes if marking present — no reason is needed or expected
         if ($status === 'present') $notes = '';
         $attClass->update($id, $status, $notes);
         $_SESSION['toast'] = "Attendance updated for {$record['studentName']}.";
@@ -77,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endforeach; ?>
       <?php endif; ?>
 
-      <!-- Record summary -->
+      <!-- Read-only record context — lets the user confirm they're editing the right row -->
       <div style="padding:12px;background:var(--surface2);border-radius:var(--radius);margin-bottom:20px;">
         <div style="font-weight:600;"><?= htmlspecialchars($record['studentName'] ?? '—') ?></div>
         <div style="font-size:.82rem;color:var(--text-muted);margin-top:2px;">
@@ -92,7 +96,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label class="form-label">Attendance Status <span class="req">*</span></label>
           <div class="status-toggle" style="margin-top:6px;">
-            <?php $cur = $_POST['status'] ?? $record['status']; ?>
+            <?php
+              // On validation failure, re-use the POSTed value so the form is sticky.
+              // Otherwise fall back to the value already in the database.
+              $cur = $_POST['status'] ?? $record['status'];
+            ?>
             <label class="status-btn <?= $cur === 'present' ? 'active-present' : '' ?>">
               <input type="radio" name="status" value="present"
                 <?= $cur === 'present' ? 'checked' : '' ?>> ✓ Present
@@ -108,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </div>
         </div>
 
+        <!-- Notes are hidden for 'present'; script.js handles the live toggle -->
         <div class="form-group" id="notesGroup" style="<?= $cur === 'present' ? 'display:none;' : '' ?>">
           <label class="form-label">Remarks / Reason</label>
           <input

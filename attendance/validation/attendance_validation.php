@@ -37,10 +37,13 @@ function validateAttendanceSubmission(int $classId, string $date, array $statusM
     } elseif (!validateDateFormat($date)) {
         $errors[] = 'Invalid date format. Expected YYYY-MM-DD.';
     } elseif ($date > date('Y-m-d')) {
+        // Server-side guard mirrors the max="today" attribute on the date input
         $errors[] = 'Attendance cannot be marked for a future date.';
     }
 
     if (empty($statusMap)) {
+        // An empty map means the form was submitted with no students — shouldn't
+        // happen in normal use but guards against direct POST manipulation
         $errors[] = 'No student statuses were submitted.';
     }
 
@@ -59,10 +62,12 @@ function validateAttendanceUpdate(string $status, string $notes): array
     $errors = [];
 
     $validStatuses = ['present', 'absent', 'late'];
+    // Strict comparison prevents 'Present' (wrong case) or injected values from slipping through
     if (!in_array($status, $validStatuses, true)) {
         $errors[] = 'Please select a valid status (present, late or absent).';
     }
 
+    // Arbitrary cap to keep notes field from being abused as a free-text dump
     if (strlen($notes) > 500) {
         $errors[] = 'Remarks must not exceed 500 characters.';
     }
@@ -78,6 +83,8 @@ function validateAttendanceUpdate(string $status, string $notes): array
  */
 function validateDateFormat(string $date): bool
 {
+    // Two-step check: regex confirms structure, checkdate confirms calendar validity
+    // (e.g. regex passes '2024-02-30' but checkdate rejects it)
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
         return false;
     }
@@ -96,12 +103,15 @@ function validateDateRange(string $from, string $to): array
 {
     $errors = [];
 
+    // Validate each boundary independently before comparing them
     if ($from && !validateDateFormat($from)) {
         $errors[] = 'Invalid "from" date format.';
     }
     if ($to && !validateDateFormat($to)) {
         $errors[] = 'Invalid "to" date format.';
     }
+
+    // String comparison works correctly for Y-m-d because the format is lexicographically ordered
     if ($from && $to && $from > $to) {
         $errors[] = '"From" date cannot be after the "to" date.';
     }
