@@ -315,6 +315,154 @@ a{text-decoration:none;color:inherit;}
   .footer-top{grid-template-columns:1fr;}  /* Stack footer columns */
   .footer{padding:44px 20px 24px;}
 }
+
+/* ════════════════════════════════════════════════════════════════
+   PRIVACY POLICY MODAL
+   Full-screen dark overlay with a centred scrollable content box.
+   Triggered by clicking the "Privacy Policy" badge in the footer.
+════════════════════════════════════════════════════════════════ */
+
+/* Semi-transparent overlay covers the entire viewport */
+.privacy-overlay{
+  display:none;                        /* Hidden by default; JS sets display:flex */
+  position:fixed;
+  inset:0;                             /* top/right/bottom/left all 0 */
+  background:rgba(0,0,0,.7);
+  backdrop-filter:blur(4px);
+  z-index:999;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.privacy-overlay.open{ display:flex; }
+
+/* The white modal card */
+.privacy-modal{
+  background:#fff;
+  border-radius:20px;
+  width:100%;
+  max-width:680px;
+  max-height:88vh;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 32px 80px rgba(0,0,0,.35);
+  overflow:hidden;
+}
+
+/* Sticky header bar inside the modal */
+.privacy-modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:24px 30px 20px;
+  border-bottom:1px solid #e2e8f0;
+  flex-shrink:0;
+}
+.privacy-modal-header h2{
+  font-size:18px;
+  font-weight:800;
+  color:#1e293b;
+  letter-spacing:-.02em;
+}
+.privacy-modal-header span{
+  font-size:11px;
+  font-weight:600;
+  color:#64748b;
+  background:#f1f5f9;
+  padding:4px 10px;
+  border-radius:20px;
+}
+
+/* Close button — top right of the header */
+.privacy-close{
+  background:none;
+  border:none;
+  font-size:22px;
+  color:#94a3b8;
+  cursor:pointer;
+  line-height:1;
+  padding:4px;
+  border-radius:6px;
+  transition:color .15s, background .15s;
+}
+.privacy-close:hover{ color:#1e293b; background:#f1f5f9; }
+
+/* Scrollable body */
+.privacy-modal-body{
+  padding:28px 30px;
+  overflow-y:auto;
+  flex:1;
+}
+
+/* Section headings inside the policy */
+.privacy-modal-body h3{
+  font-size:14px;
+  font-weight:700;
+  color:#1e293b;
+  margin:22px 0 8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.privacy-modal-body h3:first-child{ margin-top:0; }
+
+/* Body paragraphs */
+.privacy-modal-body p{
+  font-size:13px;
+  color:#64748b;
+  line-height:1.8;
+  margin-bottom:6px;
+}
+
+/* Inline pill tags (e.g. data items listed) */
+.privacy-tag{
+  display:inline-block;
+  font-size:11px;
+  font-weight:600;
+  padding:3px 10px;
+  border-radius:20px;
+  background:#eff6ff;
+  color:#3b82f6;
+  border:1px solid #bfdbfe;
+  margin:2px 2px 2px 0;
+}
+
+/* Divider line between sections */
+.privacy-divider{
+  border:none;
+  border-top:1px solid #f1f5f9;
+  margin:20px 0;
+}
+
+/* Sticky footer bar with last-updated info */
+.privacy-modal-footer{
+  padding:16px 30px;
+  border-top:1px solid #e2e8f0;
+  background:#f8fafc;
+  font-size:12px;
+  color:#94a3b8;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.privacy-modal-footer a{
+  color:#3b82f6;
+  font-weight:600;
+  text-decoration:none;
+}
+.privacy-modal-footer a:hover{ text-decoration:underline; }
+
+/* Make the footer badge look like a clickable link */
+.footer-badge-link{
+  cursor:pointer;
+  transition:background .15s, color .15s;
+}
+.footer-badge-link:hover{
+  background:#3b82f6;
+  color:#fff;
+  border-color:#3b82f6;
+}
 </style>
 </head>
 <body>
@@ -493,6 +641,7 @@ a{text-decoration:none;color:inherit;}
 
     <!-- Tech stack pills — purely decorative, no links -->
     <div class="footer-badges">
+      <span class="footer-badge footer-badge-link" onclick="document.getElementById('privacyModal').classList.add('open')">🔒 Privacy Policy</span>
       <span class="footer-badge">PHP</span>
       <span class="footer-badge">MySQL</span>
       <span class="footer-badge">HTML/CSS/JS</span>
@@ -502,6 +651,114 @@ a{text-decoration:none;color:inherit;}
   </div><!-- /.footer-bottom -->
 
 </footer>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     PRIVACY POLICY MODAL
+     Hidden by default. Opens when the "Privacy Policy" badge is
+     clicked. Closes via the × button, the overlay, or Escape key.
+════════════════════════════════════════════════════════════════ -->
+<div class="privacy-overlay" id="privacyModal" onclick="if(event.target===this)closePrivacy()">
+  <div class="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+
+    <!-- Modal header -->
+    <div class="privacy-modal-header">
+      <div>
+        <h2 id="privacyTitle">🔒 Privacy Policy</h2>
+      </div>
+      <span>Last updated: May 2026</span>
+      <button class="privacy-close" onclick="closePrivacy()" aria-label="Close privacy policy">&times;</button>
+    </div>
+
+    <!-- Scrollable policy content -->
+    <div class="privacy-modal-body">
+
+      <h3>📋 Who we are</h3>
+      <p>EduSync is a web-based student record system developed as part of CTEC2713 Agile Development at Niels Brock Copenhagen Business College. It is operated exclusively by authorised school staff.</p>
+
+      <hr class="privacy-divider">
+
+      <h3>📦 What personal data we collect</h3>
+      <p>EduSync collects and stores the minimum personal data necessary to operate the system. This includes:</p>
+      <p>
+        <span class="privacy-tag">Full name</span>
+        <span class="privacy-tag">Username</span>
+        <span class="privacy-tag">Role (Administrator / Teacher / Headteacher)</span>
+        <span class="privacy-tag">Account status (active / inactive)</span>
+        <span class="privacy-tag">Encrypted password</span>
+        <span class="privacy-tag">Account creation date</span>
+      </p>
+      <p>Passwords are never stored in plain text — they are protected using bcrypt one-way hashing. No email addresses, phone numbers, or other personal identifiers are collected.</p>
+
+      <hr class="privacy-divider">
+
+      <h3>🎯 Why we collect it</h3>
+      <p>Personal data is collected solely for the purpose of <strong>school staff authentication and access management</strong>. Each piece of data serves a specific operational function and is not used for any other purpose.</p>
+
+      <hr class="privacy-divider">
+
+      <h3>👁️ Who can see your data</h3>
+      <p>Access to personal data is strictly role-gated. Only users with the <strong>Administrator</strong> role can view, add, edit, deactivate, or delete staff records. Teachers and Headteachers cannot access staff management pages.</p>
+
+      <hr class="privacy-divider">
+
+      <h3>🔒 How we protect your data</h3>
+      <p>EduSync applies multiple technical security measures in line with GDPR Article 25 (data protection by design):</p>
+      <p>
+        <span class="privacy-tag">Bcrypt password hashing</span>
+        <span class="privacy-tag">SQL injection protection (PDO)</span>
+        <span class="privacy-tag">XSS prevention</span>
+        <span class="privacy-tag">Role-based access control</span>
+        <span class="privacy-tag">Session hardening</span>
+        <span class="privacy-tag">Brute-force lockout</span>
+      </p>
+
+      <hr class="privacy-divider">
+
+      <h3>⏱️ How long we keep your data</h3>
+      <p>Staff records are retained for as long as the account is operationally required. When a staff member leaves, their account is <strong>deactivated</strong> rather than deleted, preserving the audit trail. Permanent deletion is available to Administrators but requires explicit confirmation.</p>
+
+      <hr class="privacy-divider">
+
+      <h3>🌍 Your rights under GDPR</h3>
+      <p>As a data subject under the General Data Protection Regulation (EU) 2016/679, you have the following rights:</p>
+      <p>
+        <span class="privacy-tag">Right to access your data</span>
+        <span class="privacy-tag">Right to correct inaccurate data</span>
+        <span class="privacy-tag">Right to erasure</span>
+        <span class="privacy-tag">Right to object to processing</span>
+        <span class="privacy-tag">Right to data portability</span>
+      </p>
+      <p>To exercise any of these rights, contact your school Administrator directly.</p>
+
+      <hr class="privacy-divider">
+
+      <h3>🚫 What we do not do</h3>
+      <p>EduSync does <strong>not</strong> sell, share, or transfer personal data to any third parties. No data is used for advertising, profiling, or automated decision-making.</p>
+
+    </div><!-- /.privacy-modal-body -->
+
+    <!-- Sticky footer bar -->
+    <div class="privacy-modal-footer">
+      <span>📄 In compliance with GDPR (EU) 2016/679</span>
+      <span>Questions? Contact your school Administrator.</span>
+    </div>
+
+  </div><!-- /.privacy-modal -->
+</div><!-- /.privacy-overlay -->
+
+
+<script>
+  /* Close the privacy modal */
+  function closePrivacy() {
+    document.getElementById('privacyModal').classList.remove('open');
+  }
+
+  /* Allow Escape key to close the modal */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closePrivacy();
+  });
+</script>
 
 </body>
 </html>
