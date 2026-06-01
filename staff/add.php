@@ -7,6 +7,14 @@
  * Uses the Staff middle layer class to validate and create records.
  * Requires Administrator role.
  *
+ * CHANGES FROM ORIGINAL:
+ *   - Added $email = $_POST['email'] to read the new email field
+ *   - Added filter_var() email format validation
+ *   - Added emailExists() duplicate check
+ *   - create() call now passes $email as the 3rd argument
+ *   - $old array now includes 'email' so the form re-populates after errors
+ *   - HTML form: new "Email Address" input row added between username and password
+ *
  * @package EduSync
  * @author  Sujan Ghimire
  */
@@ -34,27 +42,40 @@ $error = null;
 $old   = [];
 
 // ── HANDLE FORM SUBMISSION (POST) ────────────────────────────────────────────
-// Only runs on form submission; GET requests fall through to the HTML below.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Sanitise inputs before any validation or DB interaction.
-    // trim() removes accidental leading/trailing whitespace.
-    // strtolower() normalises the username so "Jane.Smith" and "jane.smith"
-    // are treated as the same account.
+    // Sanitise all text inputs: trim() removes accidental whitespace.
+    // strtolower() normalises username and email so case differences
+    // don't create duplicate-looking records.
     $fullName = trim($_POST['fullName'] ?? '');
     $username = strtolower(trim($_POST['username'] ?? ''));
+
+    // NEW: read the email field submitted from the form
+    $email    = strtolower(trim($_POST['email'] ?? ''));
+
+    // Password taken as-is (bcrypt comparison is case-sensitive)
     $password = $_POST['password'] ?? '';
     $role     = $_POST['role'] ?? '';
 
     // ── VALIDATION CHAIN ─────────────────────────────────────────────────────
-    // Checks run in priority order; the first failure sets $error and stops
-    // the chain. This gives the user one focused message at a time.
+    // Checks run in order; the first failure sets $error and stops the chain.
+    // This gives the user one focused error message at a time.
 
     if (!$fullName)
         $error = 'Full name is required.';
 
     elseif (!$username)
         $error = 'Username is required.';
+
+    // NEW: check the email field is not empty
+    elseif (!$email)
+        $error = 'Email address is required.';
+
+    // NEW: validate that the email looks like a real email address.
+    // FILTER_VALIDATE_EMAIL checks for the presence of @, a domain, etc.
+    // This catches typos like "sujan@" or "sujan.ghimire" before any DB query.
+    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL))
+        $error = 'Please enter a valid email address.';
 
     elseif (!$role)
         $error = 'Please select a role.';
@@ -67,29 +88,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif (($pwError = $staffClass->validatePasswordStrength($password)) !== null)
         $error = $pwError;
 
-    // Check for a duplicate username — must run after format validation
-    // so we don't do a DB round-trip on obviously bad input.
+    // Check for duplicate username — runs after format checks
+    // so we don't make a DB round-trip on obviously invalid input
     elseif ($staffClass->usernameExists($username))
         $error = "Username \"$username\" is already taken.";
 
+    // NEW: check for duplicate email address (must be unique in tblStaff)
+    elseif ($staffClass->emailExists($email))
+        $error = "Email \"$email\" is already in use.";
+
     // ── POST-VALIDATION BRANCHING ─────────────────────────────────────────────
     if ($error) {
-        // Validation failed: save submitted values so the form can re-populate.
-        // compact() builds ['fullName'=>..., 'username'=>..., 'role'=>...].
-        // Password is intentionally excluded — the user must retype it.
-        $old = compact('fullName', 'username', 'role');
+        // Validation failed — save submitted values so the form can re-populate.
+        // Password is intentionally excluded: the user must retype it.
+        // NEW: 'email' added to the compact() call
+        $old = compact('fullName', 'username', 'email', 'role');
 
     } else {
-        // Validation passed: create the staff record.
-        // Staff::create() handles bcrypt hashing internally — the plain-text
-        // password is never stored or logged.
-        $staffClass->create($fullName, $username, $password, $role);
+        // Validation passed — create the staff record.
+        // Staff::create() handles bcrypt hashing internally.
+        // NEW: $email passed as 3rd argument (was not in the original call)
+        $staffClass->create($fullName, $username, $email, $password, $role);
 
         // Store a one-shot success toast for the staff list page to display.
-        // $_SESSION is used so the message survives the redirect.
         $_SESSION['toast'] = "Staff account for \"$fullName\" created successfully.";
 
-        // Redirect to the staff list; exit prevents further output after the header.
         header('Location: index.php');
         exit;
     }
@@ -100,32 +123,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-
-<!-- Shared metadata: favicon, CSP headers, and other head tags -->
 <?php require_once __DIR__ . '/../shared/meta.php'; ?>
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Add Staff — EduSync</title>
-
-<!-- Staff module stylesheet (tokens, layout, form components) -->
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Full-screen overlay used by the sidebar on mobile -->
 <div class="overlay" id="overlay"></div>
-
-<!-- Top navigation bar — populated by shared/auth.js -->
 <nav class="topnav" id="topnav"></nav>
 
 <div class="app-layout">
-
-  <!-- Sidebar navigation — populated by shared/auth.js -->
   <aside class="sidebar" id="sidebar"></aside>
 
   <main class="content">
 
-    <!-- Breadcrumb-style eyebrow: "Role · Full Name" -->
     <div class="page-eyebrow">
       <?= htmlspecialchars($_SESSION['user']['role']) ?> ·
       <?= htmlspecialchars($_SESSION['user']['fullName']) ?>
@@ -134,31 +146,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="page-title">Add New Staff</div>
     <div class="page-sub">Create a new staff account and assign a role.</div>
 
-    <!-- Form card: max-width keeps the two-column layout readable -->
     <div class="card" style="max-width:540px;">
 
-      <!-- ── VALIDATION ERROR CALLOUT ────────────────────────────────────────
-           Rendered only when $error is non-null (failed POST).
-           htmlspecialchars prevents XSS in case the error message ever
-           reflects user-supplied input (e.g. the duplicate username message). -->
+      <!-- Validation error callout — only shown on a failed POST -->
       <?php if ($error): ?>
         <div class="callout callout-danger" style="margin-bottom:16px;">
           ⚠️ <?= htmlspecialchars($error) ?>
         </div>
       <?php endif; ?>
 
-      <!-- POST to the same file; the PHP block above handles the submission -->
       <form method="POST" action="add.php">
 
-        <!-- ── ROW 1: FULL NAME + USERNAME ────────────────────────────────────
-             Two equal columns side by side via .form-row grid. -->
+        <!-- ── ROW 1: FULL NAME + USERNAME ──────────────────────────────────── -->
         <div class="form-row">
 
           <!-- Full Name field -->
           <div class="form-group">
             <label class="form-label">
               Full Name <span class="req">*</span>
-              <!-- .req applies red colour to the asterisk via CSS -->
             </label>
             <input
               class="form-input"
@@ -166,12 +171,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               placeholder="e.g. Jane Smith"
               value="<?= htmlspecialchars($old['fullName'] ?? '') ?>"
               autofocus
-              <!-- value re-populates after a failed submission;
-                   autofocus places the cursor here on page load -->
             >
           </div>
 
-          <!-- Username field -->
+          <!-- Username field (still used for display/internal purposes) -->
           <div class="form-group">
             <label class="form-label">
               Username <span class="req">*</span>
@@ -181,15 +184,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               name="username"
               placeholder="e.g. jane.smith"
               value="<?= htmlspecialchars($old['username'] ?? '') ?>"
-              <!-- Re-populated from $old after a failed attempt -->
             >
           </div>
 
         </div><!-- /.form-row (row 1) -->
 
-        <!-- ── ROW 2: PASSWORD + ROLE ──────────────────────────────────────────
-             Password has a live strength meter below it (JS-driven).
-             Role is a select dropdown. -->
+        <!-- ── EMAIL ROW — NEW ────────────────────────────────────────────────
+             This entire block is new. The email address is what the staff
+             member uses to log in. It must be unique across tblStaff.
+             type="email" enables the browser's email keyboard on mobile. -->
+        <div class="form-row">
+          <div class="form-group" style="flex:1 1 100%;">
+            <label class="form-label">
+              Email Address <span class="req">*</span>
+            </label>
+            <input
+              class="form-input"
+              type="email"
+              name="email"
+              placeholder="e.g. jane.smith@edusync.school"
+              value="<?= htmlspecialchars($old['email'] ?? '') ?>"
+              autocomplete="email"
+            >
+            <!-- Hint text below the field explains its purpose -->
+            <div class="form-hint">Used to sign in. Must be unique.</div>
+          </div>
+        </div>
+
+        <!-- ── ROW 2: PASSWORD + ROLE ──────────────────────────────────────── -->
         <div class="form-row">
 
           <!-- Password field with live strength indicator -->
@@ -204,27 +226,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               type="password"
               placeholder="Min 8 characters"
               autocomplete="new-password"
-              <!-- autocomplete="new-password" tells the browser this is a
-                   creation field, not a login field, preventing autofill
-                   of the user's own saved credentials -->
               oninput="updateStrength(this.value)"
-              <!-- oninput fires updateStrength() on every keystroke so the
-                   strength bar and checklist update in real time -->
             >
 
-            <!-- ── STRENGTH BAR ───────────────────────────────────────────────
-                 Thin progress bar below the input.
-                 Width (0–100%) and background colour are set by updateStrength()
-                 in JS: red (≤2 rules) → amber (3) → green (4–5). -->
+            <!-- Strength bar: width and colour updated by updateStrength() JS -->
             <div style="margin-top:6px;height:4px;border-radius:2px;background:var(--color-border-tertiary);overflow:hidden;">
               <div id="pw-bar" style="height:100%;width:0%;border-radius:2px;transition:width .25s,background .25s;"></div>
             </div>
 
-            <!-- ── REQUIREMENTS CHECKLIST ─────────────────────────────────────
-                 Five items in a 2-column grid.
-                 Each <li> has a unique id so updateStrength() can target it.
-                 &#x25CB; = hollow circle (not yet met); swapped to &#x25CF; = filled
-                 circle when the corresponding regex passes. -->
+            <!-- Requirements checklist: each <li> targeted by updateStrength() -->
             <ul id="pw-reqs" style="margin:8px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;">
               <li id="req-len"     style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; 8+ characters</li>
               <li id="req-upper"   style="font-size:12px;color:var(--color-text-secondary);">&#x25CB; Uppercase letter</li>
@@ -240,36 +250,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               Role <span class="req">*</span>
             </label>
             <select class="form-select" name="role">
-
-              <!-- Default placeholder option — forces the user to make an active choice -->
               <option value="">Select role…</option>
-
-              <!-- Loop over the three valid roles.
-                   'selected' is re-applied from $old['role'] after a failed
-                   submission so the user doesn't have to re-pick the role. -->
               <?php foreach (['Administrator', 'Teacher', 'Headteacher'] as $r): ?>
-                <option value="<?= $r ?>"
-                  <?= ($old['role'] ?? '') === $r ? 'selected' : '' ?>>
+                <option value="<?= $r ?>" <?= ($old['role'] ?? '') === $r ? 'selected' : '' ?>>
                   <?= $r ?>
                 </option>
               <?php endforeach; ?>
-
             </select>
-          </div><!-- /.form-group (role) -->
+          </div>
 
         </div><!-- /.form-row (row 2) -->
 
-        <!-- ── FORM ACTIONS ────────────────────────────────────────────────────
-             Cancel returns to the staff list without saving.
-             Submit triggers the POST handler at the top of this file. -->
-        <div class="modal-footer"
-             style="padding:16px 0 0;border-top:1px solid var(--border);margin-top:8px;">
-
-          <!-- Cancel: plain anchor back to the list — no JS confirm needed
-               since nothing has been saved yet -->
+        <!-- ── FORM ACTIONS ──────────────────────────────────────────────────── -->
+        <div class="modal-footer" style="padding:16px 0 0;border-top:1px solid var(--border);margin-top:8px;">
           <a href="index.php" class="btn btn-ghost">Cancel</a>
-
-          <!-- Submit: triggers POST validation then Staff::create() on success -->
           <button type="submit" class="btn btn-primary">Save Staff</button>
         </div>
 
@@ -279,74 +273,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </main>
 </div><!-- /.app-layout -->
 
-<!-- Shared auth script: renders topnav + sidebar based on session role -->
 <script src="../shared/auth.js"></script>
 
 <script>
 /**
  * updateStrength(val)
  *
- * Live client-side password strength feedback.
- * Called on every keystroke via oninput on #pw-input.
+ * Live client-side password strength feedback — called on every keystroke.
+ * NOTE: this is cosmetic only. The authoritative check is
+ * Staff::validatePasswordStrength() on the server.
  *
- * Updates two UI elements:
- *   1. #pw-reqs checklist — hollow circle (&#x25CB;) → filled circle (&#x25CF;)
- *      with green colour when the rule passes; reverts when it fails again.
- *   2. #pw-bar width (0–100%) and colour:
- *        ≤2 rules passed → red   (weak)
- *         3 rules passed → amber (fair)
- *        ≥4 rules passed → green (strong)
+ * Updates:
+ *   - #pw-reqs checklist (hollow → filled circle per rule)
+ *   - #pw-bar width (0–100%) and colour (red/amber/green)
  *
- * NOTE: This is purely cosmetic client-side feedback.
- * The authoritative password policy check is Staff::validatePasswordStrength()
- * on the server — this JS can be bypassed by disabling JavaScript.
- *
- * @param {string} val — Current value of the password input.
+ * @param {string} val  Current value of the password input.
  */
 function updateStrength(val) {
-
-    // Map each checklist item ID to its corresponding regex/condition.
-    // Object.entries() iterates them in insertion order (top → bottom of the list).
     const checks = {
-        'req-len':     val.length >= 8,          // Minimum length
-        'req-upper':   /[A-Z]/.test(val),        // At least one uppercase letter
-        'req-lower':   /[a-z]/.test(val),        // At least one lowercase letter
-        'req-digit':   /[0-9]/.test(val),        // At least one digit
-        'req-special': /[^A-Za-z0-9]/.test(val), // At least one non-alphanumeric character
+        'req-len':     val.length >= 8,
+        'req-upper':   /[A-Z]/.test(val),
+        'req-lower':   /[a-z]/.test(val),
+        'req-digit':   /[0-9]/.test(val),
+        'req-special': /[^A-Za-z0-9]/.test(val),
     };
 
-    let passed = 0;   // Running count of rules satisfied
+    let passed = 0;
 
     for (const [id, ok] of Object.entries(checks)) {
         const el = document.getElementById(id);
-        if (!el) continue;   // Guard: skip if element not found in DOM
-
+        if (!el) continue;
         if (ok) {
-            // Rule met: swap hollow circle for filled circle and apply green colour
-            el.innerHTML = el.innerHTML.replace('\u25CB', '\u25CF');
+            el.innerHTML = el.innerHTML.replace('\u25CB', '\u25CF');   // Hollow → filled
             el.style.color = 'var(--color-text-success)';
             passed++;
         } else {
-            // Rule not met: revert to hollow circle and muted colour
-            el.innerHTML = el.innerHTML.replace('\u25CF', '\u25CB');
+            el.innerHTML = el.innerHTML.replace('\u25CF', '\u25CB');   // Filled → hollow
             el.style.color = 'var(--color-text-secondary)';
         }
     }
 
-    // ── UPDATE STRENGTH BAR ──────────────────────────────────────────────────
-    const bar = document.getElementById('pw-bar');
-    if (!bar) return;   // Guard: bail if bar element is missing
+    const bar   = document.getElementById('pw-bar');
+    if (!bar) return;
 
-    // Width scales linearly: each rule = 20% of the bar
-    const pct = (passed / 5) * 100;
-
-    // Colour communicates overall strength at a glance
-    const color = passed <= 2 ? 'var(--color-background-danger)'    // Red   — weak
-                : passed <= 3 ? 'var(--color-background-warning)'   // Amber — fair
-                :               'var(--color-background-success)';  // Green — strong
-
-    bar.style.width      = pct + '%';
-    bar.style.background = color;
+    bar.style.width      = (passed / 5 * 100) + '%';
+    bar.style.background = passed <= 2 ? 'var(--color-background-danger)'
+                         : passed <= 3 ? 'var(--color-background-warning)'
+                         :               'var(--color-background-success)';
 }
 </script>
 
