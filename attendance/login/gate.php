@@ -21,20 +21,16 @@
 
 session_start();
 
-// Already logged in — go straight to the attendance index
+// Already logged in — go straight to attendance
 if (!empty($_SESSION['user'])) {
     header('Location: ../index.php');
     exit;
 }
 
-// Read and clear any error message set by check.php on a failed login attempt.
-// The error is stored in the session so it survives the redirect from check.php.
-$error = $_SESSION['login_error'] ?? null;
-unset($_SESSION['login_error']);   // Clear immediately so it only shows once
+$error  = $_SESSION['login_error'] ?? null;
+unset($_SESSION['login_error']);
 
-// Read the ?return= parameter passed by auth.php's requireRole() redirect.
-// This tells check.php where to send the user after a successful login.
-// Sanitised to only allow relative paths — never external URLs.
+// Sanitise return URL (relative only)
 $return = $_GET['return'] ?? '../index.php';
 if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
     $return = '../index.php';
@@ -79,18 +75,13 @@ if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
        Only shown when check.php redirected back here with a login_error.
        htmlspecialchars() prevents XSS in the error text. -->
   <?php if ($error): ?>
-    <div class="callout callout-danger" style="margin-bottom:16px;">
-      ⚠️ <?= htmlspecialchars($error) ?>
-    </div>
+    <div class="callout callout-danger" style="margin-bottom:16px;">⚠️ <?= htmlspecialchars($error) ?></div>
   <?php endif; ?>
 
   <!-- ── LOGIN FORM ──────────────────────────────────────────────────────────
        POSTs to check.php which validates credentials and initiates 2FA. -->
   <div class="card">
     <form method="POST" action="check.php">
-
-      <!-- Pass the return URL through to check.php so it can be stored in
-           $_SESSION['2fa_return'] and used after the OTP is verified. -->
       <input type="hidden" name="return" value="<?= htmlspecialchars($return) ?>">
 
       <!-- EMAIL FIELD — CHANGED from username in the original

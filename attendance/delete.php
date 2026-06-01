@@ -14,6 +14,7 @@
  */
 session_start();
 require_once __DIR__ . '/../shared/auth.php';
+// Teachers are intentionally excluded — only managers can hard-delete records
 requireRole(['Administrator', 'Headteacher']);
 $sessionUser = $_SESSION['user'];
 
@@ -23,17 +24,21 @@ require_once __DIR__ . '/../methods/Attendance.php';
 /** @var Attendance $attClass - Middle layer instance */
 $attClass = new Attendance(db());
 
+// Accept id from GET (link click) or POST (form submission) to cover both flows
 $id     = (int)($_GET['id'] ?? $_POST['attendanceId'] ?? 0);
 $record = $attClass->getById($id);
 if (!$record) {
+    // Record not found (already deleted or bad URL) — return silently to list
     header('Location: list.php');
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Hard-delete directly — sp_DeleteAttendanceById does not exist in this project
+    // Direct SQL delete — no stored procedure exists for single-record removal
     $pdo = db();
     $pdo->prepare("DELETE FROM tblAttendance WHERE attendanceId = ?")->execute([$id]);
+
+    // Include student name and date in the toast for a clear audit trail in the UI
     $_SESSION['toast'] = "Attendance record for \"{$record['studentName']}\" on "
         . date('d M Y', strtotime($record['date'])) . " deleted.";
     header('Location: list.php');
@@ -62,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="card" style="max-width:480px;">
 
-      <!-- Record summary -->
+      <!-- Record summary — gives the admin full context before confirming -->
       <div style="padding:14px;background:var(--surface2);border-radius:var(--radius);margin-bottom:16px;">
         <div style="font-weight:600;font-size:.95rem;"><?= htmlspecialchars($record['studentName'] ?? '—') ?></div>
         <div style="color:var(--text-muted);font-size:.82rem;margin-top:2px;">
@@ -91,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       <div class="modal-footer" style="padding:16px 0 0;border-top:1px solid var(--border);margin-top:8px;">
         <a href="list.php" class="btn btn-ghost">Cancel</a>
+        <!-- POST to self with the id in both query-string and hidden field for robustness -->
         <form method="POST" action="delete.php?id=<?= $id ?>" style="display:inline;">
           <input type="hidden" name="attendanceId" value="<?= $id ?>">
           <button type="submit" class="btn btn-danger">Delete Permanently</button>

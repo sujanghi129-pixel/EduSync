@@ -35,6 +35,7 @@ require_once __DIR__ . '/validation/attendance_validation.php';
 $attClass = new Attendance(db());
 $pdo      = db();
 
+// Only active classes appear — archived classes should not accept new marks
 $classes = $pdo->query("
     SELECT c.classId, c.className, g.gradeName
     FROM tblClass c
@@ -43,23 +44,26 @@ $classes = $pdo->query("
     ORDER BY g.gradeId ASC, c.className ASC
 ")->fetchAll();
 
+// Read-once toast values: consume from session then clear to prevent replaying
 $toast      = $_SESSION['toast']       ?? null;
 $toastError = $_SESSION['toast_error'] ?? null;
 unset($_SESSION['toast'], $_SESSION['toast_error']);
 
 $selectedClass = (int)($_GET['classId'] ?? 0);
+// Default to today so the teacher doesn't have to change the date each morning
 $selectedDate  = $_GET['date'] ?? date('Y-m-d');
 
-// Load existing attendance if class and date are selected
 $existing      = [];
 $alreadyMarked = false;
 $students      = [];
 $classInfo     = null;
 
 if ($selectedClass && $selectedDate) {
+    // Check whether records already exist for this class/date combination
     $existing      = $attClass->getByClassDate($selectedClass, $selectedDate);
     $alreadyMarked = !empty($existing);
 
+    // Only active students appear — withdrawn students shouldn't be marked
     $stmt = $pdo->prepare("
         SELECT s.studentId, s.fullName
         FROM tblStudent s
@@ -69,6 +73,7 @@ if ($selectedClass && $selectedDate) {
     $stmt->execute([$selectedClass]);
     $students = $stmt->fetchAll();
 
+    // Fetch class/grade name for the attendance header displayed above the table
     $stmt = $pdo->prepare("
         SELECT c.className, g.gradeName
         FROM tblClass c
@@ -106,7 +111,7 @@ if ($selectedClass && $selectedDate) {
       <div class="callout callout-danger" id="toastMsg">⚠️ <?= htmlspecialchars($toastError) ?></div>
     <?php endif; ?>
 
-    <!-- Class + Date selector -->
+    <!-- Class + Date selector — GET so refreshing the page keeps the selection -->
     <form method="GET" action="index.php" class="attendance-selector card" style="max-width:560px;margin-bottom:24px;">
       <div class="form-row">
         <div class="form-group" style="margin-bottom:0;">
@@ -122,6 +127,7 @@ if ($selectedClass && $selectedDate) {
         </div>
         <div class="form-group" style="margin-bottom:0;">
           <label class="form-label">Date <span class="req">*</span></label>
+          <!-- max=today prevents marking future attendance -->
           <input class="form-input" type="date" name="date"
             value="<?= htmlspecialchars($selectedDate) ?>"
             max="<?= date('Y-m-d') ?>">
@@ -136,6 +142,7 @@ if ($selectedClass && $selectedDate) {
     <?php if ($selectedClass && $selectedDate): ?>
 
       <?php if (empty($students)): ?>
+        <!-- Class exists but has no active students — guide the teacher to add them -->
         <div class="callout callout-warn">
           ⚠️ No active students found in this class.
           <a href="../students/add.php" style="margin-left:6px;">Add students →</a>
@@ -148,14 +155,17 @@ if ($selectedClass && $selectedDate) {
             <div class="attendance-date"><?= date('l, d F Y', strtotime($selectedDate)) ?></div>
           </div>
           <?php if ($alreadyMarked): ?>
+            <!-- Warn the teacher — re-submitting will replace all existing records for this date -->
             <span class="badge badge-yellow">⚠️ Already marked — submitting will overwrite</span>
           <?php endif; ?>
         </div>
 
+        <!-- POST to add.php; classId and date travel as hidden fields -->
         <form method="POST" action="add.php">
           <input type="hidden" name="classId" value="<?= $selectedClass ?>">
           <input type="hidden" name="date"    value="<?= htmlspecialchars($selectedDate) ?>">
 
+          <!-- Quick-mark buttons call markAll() in script.js -->
           <div class="quick-mark">
             <span style="font-size:.8rem;color:var(--text-muted);font-weight:500;">Mark all as:</span>
             <button type="button" class="btn btn-success btn-sm" onclick="markAll('present')">✓ All Present</button>
@@ -176,9 +186,11 @@ if ($selectedClass && $selectedDate) {
               <tbody>
                 <?php foreach ($students as $i => $s): ?>
                   <?php
+                    // Pre-fill with existing data when re-marking; default to present
                     $currentStatus = $existing[$s['studentId']]['status'] ?? 'present';
                     $currentNotes  = $existing[$s['studentId']]['notes']  ?? '';
                   ?>
+                  <!-- data-status is read by script.js to set the initial row colour -->
                   <tr class="att-row" data-status="<?= $currentStatus ?>">
                     <td style="width:40px;color:var(--text-muted);"><?= $i + 1 ?></td>
                     <td><strong><?= htmlspecialchars($s['fullName']) ?></strong></td>
@@ -199,6 +211,7 @@ if ($selectedClass && $selectedDate) {
                       </div>
                     </td>
                     <td>
+                      <!-- Notes hidden for present; display toggled live by script.js -->
                       <input
                         type="text"
                         class="form-input notes-input"
@@ -215,6 +228,7 @@ if ($selectedClass && $selectedDate) {
           </div>
 
           <div style="display:flex;gap:10px;margin-top:16px;">
+            <!-- Label changes to "Update" when re-marking an already-saved date -->
             <button type="submit" class="btn btn-primary">
               <?= $alreadyMarked ? 'Update Attendance' : 'Save Attendance' ?>
             </button>
