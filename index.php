@@ -305,7 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                have to retype their email address. -->
           
           <!-- autofocus places the cursor here automatically on page load. -->
-        >
+        
       </div>
 
       <!-- PASSWORD FIELD
