@@ -4,17 +4,13 @@
  * staff/edit.php
  *
  * Presentation layer — Edit Staff form.
- * Uses the Staff middle layer class to retrieve and update records.
- * Requires Administrator role.
  *
- * CHANGES FROM ORIGINAL:
- *   - Added $email = $_POST['email'] to read the new email field
- *   - Added filter_var() email format validation
- *   - Added emailExists($email, $id) duplicate check (excludes current record)
- *   - update() call now passes $email as the 4th argument
- *   - $old array now includes 'email' so the form re-populates after errors
- *   - HTML form: new "Email Address" input row added between username and password
- *   - Email input pre-populated from $staff['email'] on initial page load
+ * USERNAME REMOVED:
+ *   - $username variable removed from POST handler
+ *   - Username validation and usernameExists() check removed
+ *   - update() called with 5 args: staffId, fullName, email, role, password
+ *   - $old no longer includes 'username'
+ *   - Username form field removed from HTML
  *
  * @package EduSync
  * @author  Sujan Ghimire
@@ -30,12 +26,9 @@ require_once __DIR__ . '/../methods/Staff.php';
 
 $staffClass = new Staff(db());
 
-// Read the staff ID from the URL query string.
-// Cast to int immediately — never use raw $_GET values in DB queries.
-$id = (int)($_GET['id'] ?? 0);
-
-// Fetch the staff record. Redirect to the list if it doesn't exist.
+$id    = (int)($_GET['id'] ?? 0);
 $staff = $staffClass->getById($id);
+
 if (!$staff) {
     header('Location: index.php');
     exit;
@@ -44,59 +37,39 @@ if (!$staff) {
 $error = null;
 $old   = [];
 
-// ── HANDLE FORM SUBMISSION (POST) ────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $fullName = trim($_POST['fullName'] ?? '');
-    $username = strtolower(trim($_POST['username'] ?? ''));
-
-    // NEW: read the email field from the submitted form
     $email    = strtolower(trim($_POST['email'] ?? ''));
-
-    $password = $_POST['password'] ?? '';   // Empty = keep existing password
+    $password = $_POST['password'] ?? '';
     $role     = $_POST['role'] ?? '';
 
-    // ── VALIDATION CHAIN ─────────────────────────────────────────────────────
     if (!$fullName)
         $error = 'Full name is required.';
 
-    elseif (!$username)
-        $error = 'Username is required.';
-
-    // NEW: email is now required
     elseif (!$email)
         $error = 'Email address is required.';
 
-    // NEW: validate email format before hitting the database
     elseif (!filter_var($email, FILTER_VALIDATE_EMAIL))
         $error = 'Please enter a valid email address.';
 
     elseif (!$role)
         $error = 'Please select a role.';
 
-    // Password validation only runs if a new password was provided
     elseif ($password && ($pwError = $staffClass->validatePasswordStrength($password)) !== null)
         $error = $pwError;
 
-    // Check username uniqueness — pass $id to exclude the current record
-    // (otherwise editing without changing the username would always fail)
-    elseif ($staffClass->usernameExists($username, $id))
-        $error = "Username \"$username\" is already taken.";
-
-    // NEW: check email uniqueness — pass $id to exclude the current record
+    // Pass $id to exclude the current record from the uniqueness check
     elseif ($staffClass->emailExists($email, $id))
         $error = "Email \"$email\" is already in use.";
 
-    // ── POST-VALIDATION BRANCHING ─────────────────────────────────────────────
     if ($error) {
-        // NEW: 'email' added to $old so the email field re-populates on error
-        $old = compact('fullName', 'username', 'email', 'role');
+        // username removed from compact()
+        $old = compact('fullName', 'email', 'role');
 
     } else {
-        // NEW: $email passed as 4th argument (was not in the original call)
-        // update() uses sp_UpdateStaff (no password) or sp_UpdateStaffWithPassword
-        $staffClass->update($id, $fullName, $username, $email, $role, $password);
-
+        // update() now takes 5 params: staffId, fullName, email, role, password
+        $staffClass->update($id, $fullName, $email, $role, $password);
         $_SESSION['toast'] = "Staff account updated successfully.";
         header('Location: index.php');
         exit;
@@ -133,48 +106,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="card" style="max-width:540px;">
 
-      <!-- Validation error callout -->
       <?php if ($error): ?>
         <div class="callout callout-danger" style="margin-bottom:16px;">
           ⚠️ <?= htmlspecialchars($error) ?>
         </div>
       <?php endif; ?>
 
-      <!-- Action targets edit.php?id=N so the $id is always available on POST -->
       <form method="POST" action="edit.php?id=<?= $id ?>">
 
-        <!-- ── ROW 1: FULL NAME + USERNAME ──────────────────────────────────── -->
+        <!-- ── ROW 1: FULL NAME ────────────────────────────────────────────────
+             USERNAME FIELD REMOVED — only Full Name in this row now -->
         <div class="form-row">
-
-          <div class="form-group">
+          <div class="form-group" style="flex:1 1 100%;">
             <label class="form-label">
               Full Name <span class="req">*</span>
             </label>
-            <!-- $old['fullName'] used after a failed validation;
-                 $staff['fullName'] used on the initial page load -->
             <input class="form-input"
                    name="fullName"
                    placeholder="e.g. Jane Smith"
                    value="<?= htmlspecialchars($old['fullName'] ?? $staff['fullName']) ?>"
                    autofocus>
           </div>
-
-          <div class="form-group">
-            <label class="form-label">
-              Username <span class="req">*</span>
-            </label>
-            <input class="form-input"
-                   name="username"
-                   placeholder="e.g. jane.smith"
-                   value="<?= htmlspecialchars($old['username'] ?? $staff['username']) ?>">
-          </div>
-
         </div>
 
-        <!-- ── EMAIL ROW — NEW ────────────────────────────────────────────────
-             This entire block is new.
-             Pre-populated with the existing email from $staff['email']
-             on initial page load, or $old['email'] after a failed validation. -->
+        <!-- ── ROW 2: EMAIL ─────────────────────────────────────────────────── -->
         <div class="form-row">
           <div class="form-group" style="flex:1 1 100%;">
             <label class="form-label">
@@ -190,10 +145,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </div>
         </div>
 
-        <!-- ── ROW 2: PASSWORD + ROLE ──────────────────────────────────────── -->
+        <!-- ── ROW 3: PASSWORD + ROLE ──────────────────────────────────────── -->
         <div class="form-row">
 
-          <!-- Optional password update — leave blank to keep existing -->
           <div class="form-group">
             <label class="form-label">Password</label>
             <input class="form-input"
@@ -203,8 +157,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    placeholder="Leave blank to keep current"
                    autocomplete="new-password"
                    oninput="updateStrength(this.value)">
-
-            <!-- Strength indicator — hidden until the user starts typing -->
             <div id="pw-strength-wrap" style="display:none;margin-top:6px;">
               <div style="height:4px;border-radius:2px;background:var(--color-border-tertiary);overflow:hidden;">
                 <div id="pw-bar" style="height:100%;width:0%;border-radius:2px;transition:width .25s,background .25s;"></div>
@@ -219,14 +171,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
           </div>
 
-          <!-- Role dropdown — pre-selects the current or just-submitted role -->
           <div class="form-group">
             <label class="form-label">
               Role <span class="req">*</span>
             </label>
             <select class="form-select" name="role">
               <option value="">Select role…</option>
-              <?php foreach (['Administrator', 'Teacher', 'Headteacher'] as $r): ?>
+              <?php foreach (['Administrator','Teacher','Headteacher'] as $r): ?>
                 <?php $sel = ($old['role'] ?? $staff['role']) === $r ? 'selected' : ''; ?>
                 <option value="<?= $r ?>" <?= $sel ?>><?= $r ?></option>
               <?php endforeach; ?>
@@ -235,7 +186,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         </div>
 
-        <!-- ── FORM ACTIONS ──────────────────────────────────────────────────── -->
         <div class="modal-footer" style="padding:16px 0 0;border-top:1px solid var(--border);margin-top:8px;">
           <a href="index.php" class="btn btn-ghost">Cancel</a>
           <button type="submit" class="btn btn-primary">Update Staff</button>
@@ -250,19 +200,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script src="../shared/auth.js"></script>
 
 <script>
-/**
- * updateStrength(val)
- *
- * Same logic as add.php. The wrapper div is hidden by default so it doesn't
- * clutter the form when an administrator is only updating a name or role.
- * It appears as soon as the user starts typing a new password.
- *
- * Authoritative server-side check: Staff::validatePasswordStrength()
- */
 function updateStrength(val) {
     const wrap = document.getElementById('pw-strength-wrap');
     if (wrap) wrap.style.display = val.length ? 'block' : 'none';
-
     const checks = {
         'req-len':     val.length >= 8,
         'req-upper':   /[A-Z]/.test(val),
@@ -270,27 +210,19 @@ function updateStrength(val) {
         'req-digit':   /[0-9]/.test(val),
         'req-special': /[^A-Za-z0-9]/.test(val),
     };
-
     let passed = 0;
     for (const [id, ok] of Object.entries(checks)) {
         const el = document.getElementById(id);
         if (!el) continue;
-        if (ok) {
-            el.innerHTML = el.innerHTML.replace('\u25CB', '\u25CF');
-            el.style.color = 'var(--color-text-success)';
-            passed++;
-        } else {
-            el.innerHTML = el.innerHTML.replace('\u25CF', '\u25CB');
-            el.style.color = 'var(--color-text-secondary)';
-        }
+        if (ok) { el.innerHTML = el.innerHTML.replace('\u25CB','\u25CF'); el.style.color='var(--color-text-success)'; passed++; }
+        else    { el.innerHTML = el.innerHTML.replace('\u25CF','\u25CB'); el.style.color='var(--color-text-secondary)'; }
     }
-
     const bar = document.getElementById('pw-bar');
     if (!bar) return;
-    bar.style.width      = (passed / 5 * 100) + '%';
-    bar.style.background = passed <= 2 ? 'var(--color-background-danger)'
-                         : passed <= 3 ? 'var(--color-background-warning)'
-                         :               'var(--color-background-success)';
+    bar.style.width      = (passed/5*100) + '%';
+    bar.style.background = passed<=2 ? 'var(--color-background-danger)'
+                         : passed<=3 ? 'var(--color-background-warning)'
+                         :             'var(--color-background-success)';
 }
 </script>
 

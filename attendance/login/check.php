@@ -3,117 +3,116 @@
 /**
  * attendance/login/check.php
  *
- * WHAT THIS FILE DOES:
- *   Processes the login form POST from attendance/login/gate.php.
- *   Validates the email + password, then initiates 2FA by saving
- *   an OTP to tblOTPLog and redirecting to the shared 2fa_verify.php.
+ * Processes the attendance login form POST.
+ * Validates email + password, saves OTP to tblOTPLog, redirects to 2fa_verify.php.
  *
- * CHANGES FROM ORIGINAL:
- *   - Login field changed from  $_POST['username']  →  $_POST['email']
- *   - Lookup changed from  sp_GetStaffByUsername  →  sp_GetStaffByEmail
- *   - Email format validated with filter_var() before any DB query
- *   - Require path fixed:  /shared/LoginGuard.php  →  /methods/LoginGuard.php
- *   - On password success: instead of writing $_SESSION['user'] directly,
- *       the OTP is saved to tblOTPLog and staging keys are stored in
- *       $_SESSION['2fa_*'], then the user is sent to 2fa_verify.php
- *   - $_SESSION['2fa_return'] is set so that after the OTP is verified,
- *       the user lands back in the attendance module (not the dashboard)
- *
- * HOW TO FIND THE OTP DURING DEVELOPMENT:
- *   phpMyAdmin → edusync → tblOTPLog → read the otp column
+ * USERNAME REMOVED:
+ *   $_SESSION['2fa_user'] no longer contains 'username'.
+ *   Session keys: staffId, fullName, email, role.
  *
  * @package EduSync
  * @author  Laxman Giri
  */
 
-// auth.php provides startSecureSession()
 require_once __DIR__ . '/../../shared/auth.php';
-
-// db.php provides db() PDO singleton
 require_once __DIR__ . '/../../shared/db.php';
-
-// LoginGuard provides brute-force / lockout protection
-// NOTE: path is methods/ not shared/ — corrected from original
 require_once __DIR__ . '/../../methods/LoginGuard.php';
 
-// Start the session with Secure, HttpOnly, SameSite=Strict cookie flags.
 startSecureSession();
 
-// Only accept POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: gate.php');
     exit;
 }
 
-$username = strtolower(trim($_POST['username'] ?? ''));
-$password = $_POST['password']      ?? '';
+$email    = strtolower(trim($_POST['email'] ?? ''));
+$password = $_POST['password'] ?? '';
 
-if (!$username || !$password) {
-    $_SESSION['login_error'] = 'Please enter both username and password.';
+if (!$email || !$password) {
+    $_SESSION['login_error'] = 'Please enter both email and password.';
+    header('Location: gate.php');
+    exit;
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    $_SESSION['login_error'] = 'Please enter a valid email address.';
     header('Location: gate.php');
     exit;
 }
 
 $pdo   = db();
-$guard = new LoginGuard($pdo);   // Brute-force / lockout guard
+$guard = new LoginGuard($pdo);
 
-// ── LOCKOUT CHECK ─────────────────────────────────────────────────────────────
-// Reject before touching credentials if the account is already locked.
-$lockStatus = $guard->check($username);
+// Check lockout before verifying password
+$lockStatus = $guard->check($email);
 if ($lockStatus['locked']) {
     $_SESSION['login_error'] = $lockStatus['message'];
     header('Location: gate.php');
     exit;
 }
 
-// ── DATABASE LOOKUP ───────────────────────────────────────────────────────────
-// CHANGED: uses sp_GetStaffByEmail instead of the original sp_GetStaffByUsername.
-// The stored procedure only returns rows where isStaffActive = TRUE.
+// Look up staff by email
 $stmt = $pdo->prepare("CALL sp_GetStaffByEmail(?)");
 $stmt->execute([$email]);
 $staff = $stmt->fetch();
+try { while ($stmt->nextRowset()) {} } catch (PDOException $e) {}
+$stmt->closeCursor();
 
-// Validate credentials and role
 $allowedRoles = ['Administrator', 'Teacher', 'Headteacher'];
 
-// Combine all failure conditions into one branch to prevent user enumeration:
-// the response is identical whether the user doesn't exist, the password is
-// wrong, the account is inactive, or the role is unauthorised.
 if (!$staff
     || !password_verify($password, $staff['passwordHash'])
     || !$staff['isStaffActive']
     || !in_array($staff['role'], $allowedRoles, true)
 ) {
-    // Record the failure and surface the remaining-attempts hint
-    $result = $guard->recordFailure($username);
+    $result = $guard->recordFailure($email);
     $_SESSION['login_error'] = $result['message'];
     header('Location: gate.php');
     exit;
 }
 
-// ── SUCCESS ───────────────────────────────────────────────────────────────────
-// Clear the failure counter before writing the session
-$guard->clearFailures($username);
+// ── FIRST FACTOR PASSED — INITIATE 2FA ────────────────────────────────────────
+$guard->clearFailures($email);
 
-// Regenerate the session ID on privilege escalation to prevent session fixation.
-// true = delete the old session file from the server.
-session_regenerate_id(true);
+$otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-// Set session
-$_SESSION['user'] = [
+// Save OTP to database (readable from phpMyAdmin → tblOTPLog)
+try {
+    $pdo->prepare("DELETE FROM tblOTPLog WHERE email = ? AND used = FALSE")->execute([$email]);
+    $saved = $pdo->prepare("
+        INSERT INTO tblOTPLog (email, otp, expires_at)
+        VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))
+    ")->execute([$email, $otp]);
+} catch (PDOException $e) {
+    $saved = false;
+}
+
+if (!$saved) {
+    $_SESSION['login_error'] = 'Could not generate your verification code. Please try again.';
+    header('Location: gate.php');
+    exit;
+}
+
+// Store 2FA staging keys — USERNAME REMOVED from '2fa_user'
+$_SESSION['2fa_pending'] = true;
+$_SESSION['2fa_staffId'] = $staff['staffId'];
+$_SESSION['2fa_email']   = $staff['email'];
+$_SESSION['2fa_otp']     = $otp;
+$_SESSION['2fa_expires'] = time() + 600;
+
+$_SESSION['2fa_user'] = [
     'staffId'  => $staff['staffId'],
     'fullName' => $staff['fullName'],
-    'username' => $staff['username'],
-    'email'    => $staff['email'],
+    'email'    => $staff['email'],  // username removed
     'role'     => $staff['role'],
 ];
 
-// Redirect to intended page or default to attendance index
-$return = $_POST['return'] ?? '../index.php';
-// Sanitise to prevent open redirect — only allow relative paths
+// Store return URL so 2fa_verify.php redirects back to attendance after OTP success
+$return = $_POST['return'] ?? '../../attendance/index.php';
 if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
-    $return = '../index.php';
+    $return = '../../attendance/index.php';
 }
+$_SESSION['2fa_return'] = $return;
 
-header('Location: ' . $return);
+header('Location: ../../2fa_verify.php');
 exit;
