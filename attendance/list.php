@@ -25,12 +25,12 @@ require_once __DIR__ . '/../methods/Attendance.php';
 $attClass = new Attendance(db());
 $pdo      = db();
 
-// Quick filters
+// Default date range to the current calendar month so the page is useful out-of-the-box
 $filterClass = (int)($_GET['classId'] ?? 0);
-$filterFrom  = $_GET['from'] ?? date('Y-m-01');   // first of current month
+$filterFrom  = $_GET['from'] ?? date('Y-m-01');   // first day of the current month
 $filterTo    = $_GET['to']   ?? date('Y-m-d');     // today
 
-// Load classes for filter dropdown
+// Load active classes for the filter dropdown
 $classes = $pdo->query("
     SELECT c.classId, c.className, g.gradeName
     FROM tblClass c
@@ -39,10 +39,10 @@ $classes = $pdo->query("
     ORDER BY g.gradeId ASC, c.className ASC
 ")->fetchAll();
 
-// Fetch records via middle layer
+// Delegate the report query to the Attendance middle layer
 $records = $attClass->getReport($filterClass, $filterFrom, $filterTo);
 
-// Summary counts
+// Tally per-status counts for the summary cards
 $summary = ['present' => 0, 'absent' => 0, 'late' => 0];
 foreach ($records as $r) {
     if (isset($summary[$r['status']])) $summary[$r['status']]++;
@@ -69,7 +69,7 @@ $total = count($records);
     <div class="page-title">Attendance Report</div>
     <div class="page-sub">Review records by class and date range.</div>
 
-    <!-- Quick Filters -->
+    <!-- GET form keeps filter state in the URL for sharing and back-button support -->
     <form method="GET" action="list.php" class="card" style="max-width:700px;margin-bottom:24px;">
       <div class="form-row" style="margin-bottom:12px;">
         <div class="form-group" style="margin-bottom:0;">
@@ -95,6 +95,7 @@ $total = count($records);
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button type="submit" class="btn btn-primary">Filter</button>
+        <!-- Reset drops all GET params, restoring the default date range -->
         <a href="list.php" class="btn btn-ghost">Reset</a>
         <a href="filter.php" class="btn btn-ghost">Advanced Filter →</a>
         <a href="find.php"   class="btn btn-ghost">Find Student →</a>
@@ -102,7 +103,7 @@ $total = count($records);
       </div>
     </form>
 
-    <!-- Summary Cards -->
+    <!-- Summary cards — only shown when there is data to summarise -->
     <?php if ($total > 0): ?>
     <div class="report-summary">
       <div class="summary-card">
@@ -122,6 +123,7 @@ $total = count($records);
         <div class="summary-label">Absent</div>
       </div>
       <div class="summary-card">
+        <!-- Present-only rate; late is excluded (partial absence) -->
         <div class="summary-value">
           <?= $total > 0 ? round(($summary['present'] / $total) * 100) : 0 ?>%
         </div>

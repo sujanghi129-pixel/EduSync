@@ -1,17 +1,19 @@
 <?php
 
 /**
- * staff/Staff.php
+ * methods/staff.php
  *
  * Middle layer class for the Staff Management component.
+ * Encapsulates all database operations for tblStaff.
  *
- * This class encapsulates all database operations for the tblStaff table,
- * following the three-layer architecture pattern. It acts as the middle
- * (business logic) layer between the presentation layer (PHP pages) and
- * the data layer (MySQL database via stored procedures).
+ * USERNAME REMOVED:
+ *   - getByUsername()    — method REMOVED (username column gone)
+ *   - usernameExists()   — method REMOVED (username column gone)
+ *   - create()           — $username parameter REMOVED (now 4 params)
+ *   - update()           — $username parameter REMOVED (now 5 params)
  *
- * All database operations call stored procedures defined in edusync.sql
- * to keep SQL logic in the data layer.
+ * Staff now identified by email only. All stored procedure calls
+ * updated to match the new parameter counts.
  *
  * @package EduSync
  * @author  Sujan Ghimire
@@ -21,32 +23,32 @@ require_once __DIR__ . '/../shared/db.php';
 
 class Staff {
 
-    // ── PDO instance ──────────────────────────────────────
-    /**
-     * Shared PDO connection instance.
-     *
-     * @var PDO
-     */
+    /** @var PDO  Active database connection injected via constructor. */
     private PDO $pdo;
 
     /**
-     * Initialises the Staff class with a database connection.
+     * Constructor — injects the PDO connection.
+     * All methods use this connection; no static calls or raw mysqli.
      *
-     * @param PDO $pdo - Active PDO connection from db().
+     * @param PDO $pdo  Active PDO connection from db().
      */
     public function __construct(PDO $pdo) {
         $this->pdo = $pdo;
     }
 
-    // ══════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
     //  READ METHODS
-    // ══════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
 
     /**
-     * Retrieves all staff records from the database.
-     * Calls stored procedure: sp_GetAllStaff
+     * getAll()
      *
-     * @return array Array of all staff rows ordered by staffId ASC.
+     * Retrieves every staff record ordered by staffId ascending.
+     * Returns: staffId, fullName, email, role, isStaffActive, staffCreatedAt.
+     * Used by staff/index.php.
+     * Calls: sp_GetAllStaff
+     *
+     * @return array  All staff rows (may be empty).
      */
     public function getAll(): array {
         $stmt = $this->pdo->prepare("CALL sp_GetAllStaff()");
@@ -55,11 +57,15 @@ class Staff {
     }
 
     /**
-     * Retrieves a single staff record by their unique ID.
-     * Calls stored procedure: sp_GetStaffById
+     * getById()
      *
-     * @param  int          $staffId - The unique staff identifier.
-     * @return array|false  The staff row if found, or false if not found.
+     * Retrieves a single staff record by their unique staffId.
+     * Returns: staffId, fullName, email, role, isStaffActive, staffCreatedAt.
+     * Used by edit.php and delete.php.
+     * Calls: sp_GetStaffById
+     *
+     * @param  int          $staffId  The unique staff identifier.
+     * @return array|false  The staff row if found, false if not found.
      */
     public function getById(int $staffId): array|false {
         $stmt = $this->pdo->prepare("CALL sp_GetStaffById(?)");
@@ -68,70 +74,98 @@ class Staff {
     }
 
     /**
-     * Retrieves a single staff record by their username.
+     * getByEmail()
+     *
+     * Retrieves a staff record by email address.
      * Used during login authentication.
-     * Calls stored procedure: sp_GetStaffByUsername
+     * Only returns rows where isStaffActive = TRUE (handled by stored procedure).
+     * Calls: sp_GetStaffByEmail
      *
-     * @param  string       $username - The username to look up.
-     * @return array|false  The staff row if found, or false if not found.
+     * @param  string       $email  The email address to look up.
+     * @return array|false  The staff row if found and active, false if not.
      */
-    public function getByUsername(string $username): array|false {
-        $stmt = $this->pdo->prepare("CALL sp_GetStaffByUsername(?)");
-        $stmt->execute([$username]);
-        return $stmt->fetch();
+    public function getByEmail(string $email): array|false {
+        $stmt = $this->pdo->prepare("CALL sp_GetStaffByEmail(?)");
+        $stmt->execute([$email]);
+        $row = $stmt->fetch();
+
+        // Drain all result sets MySQL stored procedures leave open.
+        // Without this, the next query on the same connection would fail.
+        try { while ($stmt->nextRowset()) {} } catch (PDOException $e) {}
+        $stmt->closeCursor();
+
+        return $row;
     }
 
-    // ══════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
     //  WRITE METHODS
-    // ══════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
 
     /**
-     * Inserts a new staff record into the database.
-     * Hashes the password before storing.
-     * Calls stored procedure: sp_AddStaff
+     * create()
      *
-     * @param  string $fullName - The staff member's full name.
-     * @param  string $username - The unique login username.
-     * @param  string $password - The plaintext password (will be hashed).
-     * @param  string $role     - The role: Administrator, Teacher or Headteacher.
-     * @return bool   True on success, false on failure.
+     * Inserts a new staff record into tblStaff.
+     * Hashes the password with bcrypt before storing.
+     * USERNAME REMOVED: was create($fullName, $username, $email, $password, $role)
+     *                   now create($fullName, $email, $password, $role) — 4 params
+     * Calls: sp_AddStaff (now takes 4 params, was 5)
+     *
+     * @param  string $fullName  Staff member's full name.
+     * @param  string $email     Unique email address (login credential).
+     * @param  string $password  Plaintext password (bcrypt-hashed before storing).
+     * @param  string $role      'Administrator', 'Teacher', or 'Headteacher'.
+     * @return bool              TRUE on success, FALSE on failure.
      */
-    public function create(string $fullName, string $username, string $password, string $role): bool {
+    public function create(string $fullName, string $email, string $password, string $role): bool {
+        // password_hash() with PASSWORD_BCRYPT generates a salt automatically
+        // and produces a 60-character string safe for VARCHAR(255).
         $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+
+        // sp_AddStaff now takes 4 params (fullName, email, hash, role)
         $stmt = $this->pdo->prepare("CALL sp_AddStaff(?, ?, ?, ?)");
-        return $stmt->execute([$fullName, $username, $passwordHash, $role]);
+        return $stmt->execute([$fullName, $email, $passwordHash, $role]);
     }
 
     /**
-     * Updates an existing staff record in the database.
-     * If a new password is provided it is hashed before storing.
-     * If password is empty the existing hash is preserved.
-     * Calls stored procedure: sp_UpdateStaff / sp_UpdateStaffWithPassword
+     * update()
      *
-     * @param  int    $staffId  - The ID of the staff record to update.
-     * @param  string $fullName - Updated full name.
-     * @param  string $username - Updated username.
-     * @param  string $role     - Updated role.
-     * @param  string $password - New password (empty string to keep existing).
-     * @return bool   True on success, false on failure.
+     * Updates an existing staff record.
+     * If $password is provided, it is hashed and the password is updated too.
+     * If $password is empty, the existing hash is preserved.
+     * USERNAME REMOVED: was update($staffId, $fullName, $username, $email, $role, $password)
+     *                   now update($staffId, $fullName, $email, $role, $password) — 5 params
+     * Calls: sp_UpdateStaff (4 params) or sp_UpdateStaffWithPassword (5 params)
+     *
+     * @param  int    $staffId   ID of the staff record to update.
+     * @param  string $fullName  Updated full name.
+     * @param  string $email     Updated email address.
+     * @param  string $role      Updated role.
+     * @param  string $password  New password (empty string = keep existing hash).
+     * @return bool              TRUE on success, FALSE on failure.
      */
-    public function update(int $staffId, string $fullName, string $username, string $role, string $password = ''): bool {
+    public function update(int $staffId, string $fullName, string $email, string $role, string $password = ''): bool {
         if ($password !== '') {
+            // Password is being changed — hash it and use the 5-param procedure
             $passwordHash = password_hash($password, PASSWORD_BCRYPT);
             $stmt = $this->pdo->prepare("CALL sp_UpdateStaffWithPassword(?, ?, ?, ?, ?)");
-            return $stmt->execute([$staffId, $fullName, $username, $role, $passwordHash]);
+            return $stmt->execute([$staffId, $fullName, $email, $role, $passwordHash]);
         } else {
+            // No password change — use the 4-param procedure
+            // The existing passwordHash in the DB is left untouched
             $stmt = $this->pdo->prepare("CALL sp_UpdateStaff(?, ?, ?, ?)");
-            return $stmt->execute([$staffId, $fullName, $username, $role]);
+            return $stmt->execute([$staffId, $fullName, $email, $role]);
         }
     }
 
     /**
-     * Permanently deletes a staff record from the database.
-     * Calls stored procedure: sp_DeleteStaff
+     * delete()
      *
-     * @param  int  $staffId - The ID of the staff record to delete.
-     * @return bool True on success, false on failure.
+     * Permanently removes a staff record from tblStaff.
+     * Call isAssignedToClass() first to prevent orphaned classes.
+     * Calls: sp_DeleteStaff
+     *
+     * @param  int  $staffId  ID of the staff record to delete.
+     * @return bool           TRUE on success, FALSE on failure.
      */
     public function delete(int $staffId): bool {
         $stmt = $this->pdo->prepare("CALL sp_DeleteStaff(?)");
@@ -139,43 +173,58 @@ class Staff {
     }
 
     /**
-     * Toggles a staff member's active status between TRUE and FALSE.
-     * Calls stored procedure: sp_ToggleStaffStatus
+     * toggleStatus()
      *
-     * @param  int  $staffId - The ID of the staff record to toggle.
-     * @return bool True on success, false on failure.
+     * Flips a staff member's isStaffActive flag between TRUE and FALSE.
+     * Used by the Activate / Deactivate button on the staff list.
+     * Calls: sp_ToggleStaffStatus
+     *
+     * @param  int  $staffId  ID of the staff record to toggle.
+     * @return bool           TRUE on success, FALSE on failure.
      */
     public function toggleStatus(int $staffId): bool {
         $stmt = $this->pdo->prepare("CALL sp_ToggleStaffStatus(?)");
         return $stmt->execute([$staffId]);
     }
 
-    // ══════════════════════════════════════════════════════
-    //  VALIDATION / BUSINESS LOGIC METHODS
-    // ══════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
+    //  VALIDATION METHODS
+    // ═════════════════════════════════════════════════════════════════════════
 
     /**
-     * Checks whether a username is already taken by another staff member.
-     * Used during add and edit validation.
-     * Calls stored procedure: sp_CheckUsernameExists
+     * emailExists()
      *
-     * @param  string $username  - The username to check.
-     * @param  int    $excludeId - Staff ID to exclude from the check (for edit forms).
-     * @return bool   True if the username is already in use, false if available.
+     * Checks whether an email address is already taken by another staff member.
+     * Used by add.php and edit.php before saving.
+     * Pass $excludeId on edit forms to exclude the current record from the check
+     * (otherwise editing without changing the email would always fail).
+     * Calls: sp_CheckEmailExists
+     *
+     * @param  string $email      The email address to check.
+     * @param  int    $excludeId  StaffId to exclude (0 for add forms).
+     * @return bool               TRUE if already in use, FALSE if available.
      */
-    public function usernameExists(string $username, int $excludeId = 0): bool {
-        $stmt = $this->pdo->prepare("CALL sp_CheckUsernameExists(?, ?)");
-        $stmt->execute([$username, $excludeId]);
-        return (bool)$stmt->fetchColumn();
+    public function emailExists(string $email, int $excludeId = 0): bool {
+        $stmt = $this->pdo->prepare("CALL sp_CheckEmailExists(?, ?)");
+        $stmt->execute([$email, $excludeId]);
+        $taken = (bool)$stmt->fetchColumn();
+
+        // Drain MySQL stored procedure result sets
+        try { while ($stmt->nextRowset()) {} } catch (PDOException $e) {}
+        $stmt->closeCursor();
+
+        return $taken;
     }
 
     /**
-     * Checks whether a staff member is assigned as the teacher of any active class.
-     * Used before allowing deletion or deactivation.
-     * Calls stored procedure: sp_IsStaffAssignedToClass
+     * isAssignedToClass()
      *
-     * @param  int  $staffId - The ID of the staff member to check.
-     * @return bool True if assigned to at least one active class, false otherwise.
+     * Returns TRUE if the staff member is the class teacher of any active class.
+     * Used before deletion or deactivation to prevent orphaned classes.
+     * Calls: sp_IsStaffAssignedToClass
+     *
+     * @param  int  $staffId  ID of the staff member to check.
+     * @return bool           TRUE if assigned to at least one active class.
      */
     public function isAssignedToClass(int $staffId): bool {
         $stmt = $this->pdo->prepare("CALL sp_IsStaffAssignedToClass(?)");
@@ -184,78 +233,83 @@ class Staff {
     }
 
     /**
-     * Verifies a plaintext password against a stored bcrypt hash.
-     * Used during login authentication.
+     * verifyPassword()
      *
-     * @param  string $password     - The plaintext password submitted by the user.
-     * @param  string $passwordHash - The bcrypt hash stored in the database.
-     * @return bool   True if the password matches the hash, false otherwise.
+     * Compares a plaintext password against a stored bcrypt hash.
+     * Timing-safe by design — always takes the same amount of time.
+     *
+     * @param  string $password      Plaintext password from the login form.
+     * @param  string $passwordHash  Bcrypt hash from tblStaff.
+     * @return bool                  TRUE if the password matches.
      */
     public function verifyPassword(string $password, string $passwordHash): bool {
         return password_verify($password, $passwordHash);
     }
 
-    // ── PASSWORD STRENGTH ─────────────────────────────────
+    // ── PASSWORD STRENGTH ─────────────────────────────────────────────────────
 
     /**
-     * Validates a plaintext password against EduSync's password policy.
+     * validatePasswordStrength()
      *
-     * Policy (aligned with NIST SP 800-63B):
-     *   - Minimum 8 characters
-     *   - At least one uppercase letter (A–Z)
-     *   - At least one lowercase letter (a–z)
-     *   - At least one digit (0–9)
-     *   - At least one special character (!@#$%^&*…)
-     *   - Must not appear in the built-in list of common passwords
+     * Server-side authoritative password policy check.
+     * The JS strength meter in the forms is cosmetic only — this is what counts.
      *
-     * Returns null on success, or a human-readable error string on failure.
-     * Centralising this here means add.php and edit.php stay in sync automatically.
+     * Rules (NIST SP 800-63B aligned):
+     *   ✓ Minimum 8 characters
+     *   ✓ At least one uppercase letter
+     *   ✓ At least one lowercase letter
+     *   ✓ At least one digit
+     *   ✓ At least one special character
+     *   ✓ Not in the common password list
      *
-     * @param  string      $password - The plaintext password to validate.
-     * @return string|null  null if valid, error message string if invalid.
+     * Returns null when the password passes all rules.
+     * Returns a string error message on the first rule that fails.
+     *
+     * @param  string      $password  Plaintext password to validate.
+     * @return string|null            null if valid; error message if not.
      */
     public function validatePasswordStrength(string $password): ?string {
-        if (strlen($password) < 8) {
-            return 'Password must be at least 8 characters.';
-        }
-        if (!preg_match('/[A-Z]/', $password)) {
-            return 'Password must contain at least one uppercase letter.';
-        }
-        if (!preg_match('/[a-z]/', $password)) {
-            return 'Password must contain at least one lowercase letter.';
-        }
-        if (!preg_match('/[0-9]/', $password)) {
-            return 'Password must contain at least one number.';
-        }
-        if (!preg_match('/[^A-Za-z0-9]/', $password)) {
-            return 'Password must contain at least one special character (e.g. !@#$%).';
-        }
 
-        // Block the most commonly used passwords to stop trivially guessable choices
-        // that technically pass the rules above (e.g. "Password1!").
+        if (strlen($password) < 8)
+            return 'Password must be at least 8 characters.';
+
+        if (!preg_match('/[A-Z]/', $password))
+            return 'Password must contain at least one uppercase letter.';
+
+        if (!preg_match('/[a-z]/', $password))
+            return 'Password must contain at least one lowercase letter.';
+
+        if (!preg_match('/[0-9]/', $password))
+            return 'Password must contain at least one number.';
+
+        // [^A-Za-z0-9] matches any character that is NOT a letter or digit
+        if (!preg_match('/[^A-Za-z0-9]/', $password))
+            return 'Password must contain at least one special character (e.g. !@#$%).';
+
+        // Block common passwords that technically pass all rules above
         $commonPasswords = [
-            'Password1!', 'Password1@', 'Welcome1!', 'Admin1234!',
-            'Qwerty123!', 'Letmein1!', 'Changeme1!', 'Abc12345!',
+            'Password1!', 'Password1@', 'Welcome1!',  'Admin1234!',
+            'Qwerty123!', 'Letmein1!',  'Changeme1!', 'Abc12345!',
             'Iloveyou1!', 'Sunshine1!', 'School123!', 'Summer2024!',
         ];
-        if (in_array($password, $commonPasswords, true)) {
+        if (in_array($password, $commonPasswords, true))
             return 'That password is too common. Please choose a more unique one.';
-        }
 
-        return null; // Password passed all checks
+        return null; // All rules passed
     }
 
     /**
-     * Counts the total number of staff members with the Administrator role.
-     * Used to enforce the minimum-one-admin rule before deletion or deactivation.
-     * Calls stored procedure: sp_CountAdmins
+     * countAdmins()
      *
-     * @return int Number of Administrator accounts in the database.
+     * Returns the number of ACTIVE Administrator accounts.
+     * Used by delete.php and toggle.php to ensure at least one admin always remains.
+     * Calls: sp_CountAdmins
+     *
+     * @return int  Number of active Administrator accounts.
      */
     public function countAdmins(): int {
         $stmt = $this->pdo->prepare("CALL sp_CountAdmins()");
         $stmt->execute();
         return (int)$stmt->fetchColumn();
     }
-
 }

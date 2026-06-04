@@ -27,6 +27,7 @@ function markAll(status) {
     const radio = row.querySelector(`input[value="${status}"]`);
     if (radio) {
       radio.checked = true;
+      // Keep visual state in sync with the newly checked radio
       updateRowStyle(row, status);
       toggleNotes(row, status);
     }
@@ -51,12 +52,12 @@ function toggleNotes(row, status) {
   if (!notesInput) return;
 
   if (status === 'present') {
-    // Hide and clear notes — no reason needed when present
+    // Clear the value when hiding so stale notes aren't silently submitted
     notesInput.style.display = 'none';
     notesInput.value = '';
   } else {
-    // Show notes with a relevant placeholder
     notesInput.style.display = '';
+    // Use different placeholder text to give the teacher a contextual hint
     notesInput.placeholder = status === 'late'
       ? 'Reason for being late'
       : 'Reason for absence';
@@ -77,12 +78,12 @@ document.querySelectorAll('.status-btn input[type="radio"]').forEach(radio => {
     const row   = this.closest('.att-row');
     const group = this.closest('.status-toggle');
 
-    // Remove active class from all buttons in this group
+    // Clear active styles from all sibling buttons before applying the new one
     group.querySelectorAll('.status-btn').forEach(btn => {
       btn.classList.remove('active-present', 'active-late', 'active-absent');
     });
 
-    // Add active class to the selected button
+    // Add the matching active class to highlight the selected button
     this.closest('.status-btn').classList.add(`active-${this.value}`);
 
     if (row) {
@@ -97,6 +98,9 @@ document.querySelectorAll('.status-btn input[type="radio"]').forEach(radio => {
 /**
  * On the single-record edit page, show or hide the notes group
  * whenever the status radio button changes.
+ *
+ * This listener targets the edit form's flat radio inputs (name="status"),
+ * which are different from the bulk-mark table radios (name="status[id]").
  *
  * @listens change
  */
@@ -122,10 +126,8 @@ document.querySelectorAll('input[name="status"]').forEach(radio => {
  * @return {void}
  */
 function updateRowStyle(row, status) {
-  // Remove all existing status colour classes
+  // Remove all status colour classes before adding the correct one
   row.classList.remove('row-present', 'row-late', 'row-absent');
-
-  // Add the class for the new status
   row.classList.add(`row-${status}`);
 
   // Reset all label active states within the row
@@ -133,7 +135,7 @@ function updateRowStyle(row, status) {
     btn.classList.remove('active-present', 'active-late', 'active-absent');
   });
 
-  // Highlight the active label
+  // optional chaining guards against a missing radio (e.g. disabled student)
   const activeBtn = row.querySelector(`input[value="${status}"]`)?.closest('.status-btn');
   if (activeBtn) activeBtn.classList.add(`active-${status}`);
 }
@@ -142,6 +144,7 @@ function updateRowStyle(row, status) {
 
 /**
  * Auto-hide the success/error toast message after 4 seconds.
+ * Matches the session-flash pattern used in index.php.
  *
  * @type {HTMLElement|null}
  */

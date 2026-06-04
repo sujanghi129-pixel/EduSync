@@ -24,13 +24,14 @@ require_once __DIR__ . '/../methods/Attendance.php';
 $pdo      = db();
 $attClass = new Attendance($pdo);
 
+// trim() prevents blank searches from doing a full table scan via LIKE '%%'
 $query    = trim($_GET['q'] ?? '');
 $students = [];
 $records  = [];
 $selected = null;
 $studentId = (int)($_GET['studentId'] ?? 0);
 
-// Search students by name
+// Phase 1 — search by partial name and show a results list
 if ($query) {
     $stmt = $pdo->prepare("
         SELECT s.studentId, s.fullName, c.className, g.gradeName
@@ -39,14 +40,16 @@ if ($query) {
         LEFT JOIN tblGrade g ON g.gradeId = s.gradeId
         WHERE s.fullName LIKE ? AND s.isStudentActive = TRUE
         ORDER BY s.fullName ASC
-        LIMIT 20
+        LIMIT 20   -- cap results to avoid overwhelming the UI
     ");
+    // Wrap in % for a contains-match rather than an exact or prefix-match
     $stmt->execute(['%' . $query . '%']);
     $students = $stmt->fetchAll();
 }
 
-// Load attendance history for selected student
+// Phase 2 — a specific student was chosen; load their full history
 if ($studentId) {
+    // Re-fetch student details so we can display name/class/grade in the heading
     $stmt = $pdo->prepare("
         SELECT s.studentId, s.fullName, c.className, g.gradeName
         FROM tblStudent s
@@ -57,6 +60,7 @@ if ($studentId) {
     $stmt->execute([$studentId]);
     $selected = $stmt->fetch();
 
+    // Fetch all records newest-first so the most recent absence is visible immediately
     $stmt = $pdo->prepare("
         SELECT a.attendanceId, a.date, a.status, a.notes,
                st.fullName AS markedByName
@@ -69,7 +73,7 @@ if ($studentId) {
     $records = $stmt->fetchAll();
 }
 
-// Summary
+// Build summary totals for the stats bar
 $summary = ['present' => 0, 'absent' => 0, 'late' => 0];
 foreach ($records as $r) {
     if (isset($summary[$r['status']])) $summary[$r['status']]++;
@@ -96,7 +100,7 @@ $total = count($records);
     <div class="page-title">Find Student Attendance</div>
     <div class="page-sub">Search for a student to view their full attendance history.</div>
 
-    <!-- Search form -->
+    <!-- Search form — GET so the query stays in the URL for sharing -->
     <form method="GET" action="find.php" class="card" style="max-width:500px;margin-bottom:24px;">
       <div class="form-group" style="margin-bottom:12px;">
         <label class="form-label">Student Name</label>
@@ -111,7 +115,7 @@ $total = count($records);
       </div>
     </form>
 
-    <!-- Search results -->
+    <!-- Show search results only when a query has been made but no specific student chosen yet -->
     <?php if ($query && !empty($students) && !$studentId): ?>
       <div class="table-wrap" style="max-width:600px;margin-bottom:24px;">
         <table>
@@ -125,6 +129,7 @@ $total = count($records);
                 <td><?= htmlspecialchars($s['className'] ?? '—') ?></td>
                 <td><span class="badge badge-blue"><?= htmlspecialchars($s['gradeName'] ?? '—') ?></span></td>
                 <td>
+                  <!-- Selecting a student passes only their ID — name comes from the DB -->
                   <a href="find.php?studentId=<?= $s['studentId'] ?>" class="btn btn-ghost btn-sm">View History</a>
                 </td>
               </tr>
@@ -136,7 +141,7 @@ $total = count($records);
       <div class="callout callout-warn">⚠️ No students found matching "<?= htmlspecialchars($query) ?>".</div>
     <?php endif; ?>
 
-    <!-- Student attendance history -->
+    <!-- Attendance history — only rendered after a student is selected -->
     <?php if ($selected): ?>
       <div style="margin-bottom:16px;">
         <strong><?= htmlspecialchars($selected['fullName']) ?></strong>
@@ -152,6 +157,7 @@ $total = count($records);
           <div class="summary-card summary-late"><div class="summary-value"><?= $summary['late'] ?></div><div class="summary-label">Late</div></div>
           <div class="summary-card summary-absent"><div class="summary-value"><?= $summary['absent'] ?></div><div class="summary-label">Absent</div></div>
           <div class="summary-card">
+            <!-- Present-only rate — late counts as a partial miss -->
             <div class="summary-value"><?= $total > 0 ? round(($summary['present'] / $total) * 100) : 0 ?>%</div>
             <div class="summary-label">Rate</div>
           </div>
@@ -187,6 +193,7 @@ $total = count($records);
                 <td><?= htmlspecialchars($r['notes'] ?? '—') ?></td>
                 <td><?= htmlspecialchars($r['markedByName'] ?? '—') ?></td>
                 <td>
+                  <!-- No delete link here — single-student view is read-mostly -->
                   <a href="edit.php?id=<?= $r['attendanceId'] ?>" class="btn btn-ghost btn-sm">Edit</a>
                 </td>
               </tr>

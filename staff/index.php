@@ -7,6 +7,12 @@
  * Uses the Staff middle layer class to retrieve all staff records.
  * Requires Administrator role.
  *
+ * USERNAME REMOVED:
+ *   - data-username attribute changed to data-email on each <tr>
+ *   - "Username" table header changed to "Email"
+ *   - $s['username'] cell changed to $s['email']
+ *   - Search placeholder updated to "Search name or email..."
+ *
  * @package EduSync
  * @author  Sujan Ghimire
  */
@@ -22,26 +28,17 @@ requireRole(['Administrator']);
 require_once __DIR__ . '/../shared/db.php';
 require_once __DIR__ . '/../methods/staff.php';
 
-/**
- * Create Staff class object
- * Used to retrieve staff records from database
- */
+// Instantiate the Staff model with a live PDO connection
 $staffClass = new Staff(db());
 
-/**
- * Get all staff records
- */
+// Retrieve all staff records from tblStaff via sp_GetAllStaff
 $staff = $staffClass->getAll();
 
-/**
- * Retrieve success or error toast messages from session
- */
-$toast      = $_SESSION['toast'] ?? null;
+// Read one-shot toast messages from the session (set by add/edit/delete/toggle)
+$toast      = $_SESSION['toast']       ?? null;
 $toastError = $_SESSION['toast_error'] ?? null;
 
-/**
- * Remove messages after displaying them once
- */
+// Clear them immediately so they only display once
 unset($_SESSION['toast'], $_SESSION['toast_error']);
 ?>
 
@@ -74,41 +71,39 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
 
   <main class="content">
 
-    <!-- Display current logged-in user -->
+    <!-- Eyebrow: role · name of the logged-in user -->
     <div class="page-eyebrow">
       <?= htmlspecialchars($_SESSION['user']['role']) ?> ·
       <?= htmlspecialchars($_SESSION['user']['fullName']) ?>
     </div>
 
-    <!-- Page heading -->
     <div class="page-title">Staff Management</div>
-    <div class="page-sub">
-      Manage school staff accounts, roles and access control.
-    </div>
+    <div class="page-sub">Manage school staff accounts, roles and access control.</div>
 
-    <!-- Success message -->
+    <!-- Success toast (e.g. "Staff account created successfully") -->
     <?php if ($toast): ?>
       <div class="callout callout-success" id="toastMsg">
         ✅ <?= htmlspecialchars($toast) ?>
       </div>
     <?php endif; ?>
 
-    <!-- Error message -->
+    <!-- Error toast -->
     <?php if ($toastError): ?>
       <div class="callout callout-danger" id="toastMsg">
         ⚠️ <?= htmlspecialchars($toastError) ?>
       </div>
     <?php endif; ?>
 
-    <!-- Toolbar section -->
+    <!-- ── TOOLBAR ────────────────────────────────────────────────────────── -->
     <div class="toolbar">
 
-      <!-- Search input -->
+      <!-- Search input — filters by fullName or email via script.js -->
       <div class="search-bar">
         <span>🔍</span>
         <input type="text"
                id="searchInput"
-               placeholder="Search name or username…">
+               placeholder="Search name or email…">
+               <!-- CHANGED: was "Search name or username…" -->
       </div>
 
       <!-- Filter by role -->
@@ -119,29 +114,27 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
         <option value="Headteacher">Headteacher</option>
       </select>
 
-      <!-- Filter by status -->
+      <!-- Filter by active/inactive status -->
       <select class="form-select" id="statusFilter" style="width:auto;min-width:130px;">
         <option value="">All Status</option>
         <option value="1">Active</option>
         <option value="0">Inactive</option>
       </select>
 
-      <!-- Navigation buttons -->
       <a href="list.php" class="btn btn-ghost">👥 View List</a>
-      <a href="add.php" class="btn btn-primary">+ Add Staff</a>
+      <a href="add.php"  class="btn btn-primary">+ Add Staff</a>
 
     </div>
 
-    <!-- Staff table container -->
+    <!-- ── STAFF TABLE ────────────────────────────────────────────────────── -->
     <div class="table-wrap">
       <table id="staffTable">
 
-        <!-- Table headers -->
         <thead>
           <tr>
             <th>ID</th>
             <th>Full Name</th>
-            <th>Username</th>
+            <th>Email</th><!-- CHANGED: was "Username" -->
             <th>Role</th>
             <th>Created</th>
             <th>Status</th>
@@ -151,8 +144,8 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
 
         <tbody>
 
-          <!-- Empty state if no staff records exist -->
           <?php if (empty($staff)): ?>
+            <!-- Empty state shown when no staff records exist in tblStaff -->
             <tr>
               <td colspan="7">
                 <div class="empty-state">
@@ -165,22 +158,19 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
           <?php else: ?>
 
             <?php
-              /**
-               * Badge color classes for staff roles
-               */
+              // Badge colour classes mapped to each role value
               $roleColor = [
                 'Administrator' => 'badge-blue',
                 'Teacher'       => 'badge-yellow',
-                'Headteacher'   => 'badge-green'
+                'Headteacher'   => 'badge-green',
               ];
             ?>
 
-            <!-- Loop through each staff member -->
             <?php foreach ($staff as $s): ?>
 
             <tr
               data-name="<?= strtolower(htmlspecialchars($s['fullName'])) ?>"
-              data-username="<?= strtolower(htmlspecialchars($s['username'])) ?>"
+              data-email="<?= strtolower(htmlspecialchars($s['email'])) ?>"
               data-role="<?= htmlspecialchars($s['role']) ?>"
               data-active="<?= $s['isStaffActive'] ? '1' : '0' ?>"
             >
@@ -188,11 +178,11 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
               <!-- Staff ID -->
               <td><code><?= $s['staffId'] ?></code></td>
 
-              <!-- Staff full name -->
+              <!-- Full name -->
               <td><strong><?= htmlspecialchars($s['fullName']) ?></strong></td>
 
-              <!-- Username -->
-              <td><code><?= htmlspecialchars($s['username']) ?></code></td>
+              <!-- Email address — CHANGED: was $s['username'] -->
+              <td><code><?= htmlspecialchars($s['email']) ?></code></td>
 
               <!-- Role badge -->
               <td>
@@ -201,10 +191,10 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
                 </span>
               </td>
 
-              <!-- Account creation date -->
+              <!-- Account creation date/time -->
               <td><?= htmlspecialchars($s['staffCreatedAt']) ?></td>
 
-              <!-- Active/Inactive status -->
+              <!-- Active / Inactive status badge -->
               <td>
                 <?php if ($s['isStaffActive']): ?>
                   <span class="badge badge-green">● Active</span>
@@ -213,38 +203,23 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
                 <?php endif; ?>
               </td>
 
-              <!-- Action buttons -->
+              <!-- Action buttons: Edit, Activate/Deactivate, Delete -->
               <td>
                 <div class="action-row">
 
-                  <!-- Edit button -->
                   <a href="edit.php?id=<?= $s['staffId'] ?>"
-                     class="btn btn-ghost btn-sm">
-                     Edit
-                  </a>
+                     class="btn btn-ghost btn-sm">Edit</a>
 
-                  <!-- Activate/Deactivate form -->
-                  <form method="POST"
-                        action="toggle.php"
-                        style="display:inline;">
-
-                    <input type="hidden"
-                           name="staffId"
-                           value="<?= $s['staffId'] ?>">
-
+                  <form method="POST" action="toggle.php" style="display:inline;">
+                    <input type="hidden" name="staffId" value="<?= $s['staffId'] ?>">
                     <button type="submit"
                             class="btn btn-sm <?= $s['isStaffActive'] ? 'btn-danger' : 'btn-success' ?>">
-
                       <?= $s['isStaffActive'] ? 'Deactivate' : 'Activate' ?>
-
                     </button>
                   </form>
 
-                  <!-- Delete button -->
                   <a href="delete.php?id=<?= $s['staffId'] ?>"
-                     class="btn btn-danger btn-sm">
-                     Delete
-                  </a>
+                     class="btn btn-danger btn-sm">Delete</a>
 
                 </div>
               </td>
@@ -262,10 +237,7 @@ unset($_SESSION['toast'], $_SESSION['toast_error']);
   </main>
 </div>
 
-<!-- Shared scripts -->
 <script src="../shared/auth.js"></script>
-
-<!-- Staff page search/filter functionality -->
 <script src="script.js"></script>
 
 </body>

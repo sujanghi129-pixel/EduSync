@@ -3,39 +3,39 @@
 /**
  * attendance/login/check.php
  *
- * Login gate for the Attendance module.
- * Processes the login form POST: validates credentials against
- * tblStaff, sets the session, and redirects to the Attendance
- * index (or a requested return URL).
+ * Processes the attendance login form POST.
+ * Validates email + password, saves OTP to tblOTPLog, redirects to 2fa_verify.php.
  *
- * Only staff with roles Administrator, Teacher or Headteacher
- * are permitted access to the Attendance module.
- *
- * On failure, redirects back to gate.php with an error message
- * stored in the session.
+ * USERNAME REMOVED:
+ *   $_SESSION['2fa_user'] no longer contains 'username'.
+ *   Session keys: staffId, fullName, email, role.
  *
  * @package EduSync
  * @author  Laxman Giri
  */
-// Load auth helpers — provides startSecureSession()
+
 require_once __DIR__ . '/../../shared/auth.php';
 require_once __DIR__ . '/../../shared/db.php';
-require_once __DIR__ . '/../../shared/LoginGuard.php';
+require_once __DIR__ . '/../../methods/LoginGuard.php';
 
-// Start session with Secure, HttpOnly, SameSite=Strict cookie flags
 startSecureSession();
 
-// Only accept POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: gate.php');
     exit;
 }
 
-$username = strtolower(trim($_POST['username'] ?? ''));
-$password = $_POST['password']      ?? '';
+$email    = strtolower(trim($_POST['email'] ?? ''));
+$password = $_POST['password'] ?? '';
 
-if (!$username || !$password) {
-    $_SESSION['login_error'] = 'Please enter both username and password.';
+if (!$email || !$password) {
+    $_SESSION['login_error'] = 'Please enter both email and password.';
+    header('Location: gate.php');
+    exit;
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    $_SESSION['login_error'] = 'Please enter a valid email address.';
     header('Location: gate.php');
     exit;
 }
@@ -43,25 +43,21 @@ if (!$username || !$password) {
 $pdo   = db();
 $guard = new LoginGuard($pdo);
 
-// ── LOCKOUT CHECK ─────────────────────────────────────────────────────────────
-// Reject before touching credentials if the account is already locked.
-$lockStatus = $guard->check($username);
+// Check lockout before verifying password
+$lockStatus = $guard->check($email);
 if ($lockStatus['locked']) {
     $_SESSION['login_error'] = $lockStatus['message'];
     header('Location: gate.php');
     exit;
 }
 
-$stmt = $pdo->prepare("
-    SELECT staffId, fullName, username, passwordHash, role, isStaffActive
-    FROM tblStaff
-    WHERE username = ?
-    LIMIT 1
-");
-$stmt->execute([$username]);
+// Look up staff by email
+$stmt = $pdo->prepare("CALL sp_GetStaffByEmail(?)");
+$stmt->execute([$email]);
 $staff = $stmt->fetch();
+try { while ($stmt->nextRowset()) {} } catch (PDOException $e) {}
+$stmt->closeCursor();
 
-// Validate credentials and role
 $allowedRoles = ['Administrator', 'Teacher', 'Headteacher'];
 
 if (!$staff
@@ -69,32 +65,54 @@ if (!$staff
     || !$staff['isStaffActive']
     || !in_array($staff['role'], $allowedRoles, true)
 ) {
-    // Record the failure and surface the remaining-attempts hint
-    $result = $guard->recordFailure($username);
+    $result = $guard->recordFailure($email);
     $_SESSION['login_error'] = $result['message'];
     header('Location: gate.php');
     exit;
 }
 
-// ── SUCCESS ───────────────────────────────────────────────────────────────────
-// Clear the failure counter before writing the session
-$guard->clearFailures($username);
+// ── FIRST FACTOR PASSED — INITIATE 2FA ────────────────────────────────────────
+$guard->clearFailures($email);
 
-// Regenerate the session ID on privilege escalation to prevent session fixation.
-// true = delete the old session file from the server.
-session_regenerate_id(true);
-// Redirect to intended page or default to attendance index
-$return = $_POST['return'] ?? '../index.php';
-// Sanitise to prevent open redirect — only allow relative paths
-if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
-    $return = '../index.php';
+$otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+// Save OTP to database (readable from phpMyAdmin → tblOTPLog)
+try {
+    $pdo->prepare("DELETE FROM tblOTPLog WHERE email = ? AND used = FALSE")->execute([$email]);
+    $saved = $pdo->prepare("
+        INSERT INTO tblOTPLog (email, otp, expires_at)
+        VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))
+    ")->execute([$email, $otp]);
+} catch (PDOException $e) {
+    $saved = false;
 }
-// Set session
-$_SESSION['user'] = [
+
+if (!$saved) {
+    $_SESSION['login_error'] = 'Could not generate your verification code. Please try again.';
+    header('Location: gate.php');
+    exit;
+}
+
+// Store 2FA staging keys — USERNAME REMOVED from '2fa_user'
+$_SESSION['2fa_pending'] = true;
+$_SESSION['2fa_staffId'] = $staff['staffId'];
+$_SESSION['2fa_email']   = $staff['email'];
+$_SESSION['2fa_otp']     = $otp;
+$_SESSION['2fa_expires'] = time() + 600;
+
+$_SESSION['2fa_user'] = [
     'staffId'  => $staff['staffId'],
     'fullName' => $staff['fullName'],
-    'username' => $staff['username'],
+    'email'    => $staff['email'],  // username removed
     'role'     => $staff['role'],
 ];
-header('Location: ' . $return);
+
+// Store return URL so 2fa_verify.php redirects back to attendance after OTP success
+$return = $_POST['return'] ?? '../../attendance/index.php';
+if (strpos($return, '://') !== false || strpos($return, '//') === 0) {
+    $return = '../../attendance/index.php';
+}
+$_SESSION['2fa_return'] = $return;
+
+header('Location: ../../2fa_verify.php');
 exit;

@@ -23,7 +23,7 @@ require_once __DIR__ . '/../shared/db.php';
 
 $pdo = db();
 
-// Filter inputs
+// All filters default to "no filter" (0 / empty string)
 $fClass  = (int)($_GET['classId']  ?? 0);
 $fGrade  = (int)($_GET['gradeId']  ?? 0);
 $fStatus = $_GET['status']         ?? '';
@@ -31,7 +31,7 @@ $fFrom   = $_GET['from']           ?? '';
 $fTo     = $_GET['to']             ?? '';
 $fStaff  = (int)($_GET['staffId']  ?? 0);
 
-// Dropdown data
+// Load all dropdown data up-front — used by the filter form regardless of results
 $classes = $pdo->query("
     SELECT c.classId, c.className, g.gradeName, g.gradeId
     FROM tblClass c
@@ -43,12 +43,15 @@ $classes = $pdo->query("
 $grades = $pdo->query("SELECT gradeId, gradeName FROM tblGrade ORDER BY gradeId ASC")->fetchAll();
 $staff  = $pdo->query("SELECT staffId, fullName FROM tblStaff ORDER BY fullName ASC")->fetchAll();
 
-// Build query dynamically
+// Start with a tautology so we can always use AND to append conditions
 $where  = ['1=1'];
 $params = [];
 
+// Only add each clause when the filter has a non-zero / non-empty value
 if ($fClass) { $where[] = 'a.classId = ?';  $params[] = $fClass; }
 if ($fGrade) { $where[] = 'c.gradeId = ?';  $params[] = $fGrade; }
+
+// Whitelist status to prevent arbitrary values reaching the SQL
 if ($fStatus && in_array($fStatus, ['present','absent','late'])) {
     $where[] = 'a.status = ?'; $params[] = $fStatus;
 }
@@ -59,6 +62,8 @@ if ($fStaff) { $where[] = 'a.markedById = ?'; $params[] = $fStaff; }
 $whereSQL = implode(' AND ', $where);
 
 $records = [];
+// Don't execute the query at all when no filter is set — avoids dumping
+// the entire table on first page load
 $hasFilter = $fClass || $fGrade || $fStatus || $fFrom || $fTo || $fStaff;
 
 if ($hasFilter) {
@@ -81,7 +86,7 @@ if ($hasFilter) {
     $records = $stmt->fetchAll();
 }
 
-// Summary
+// Tally counts for the summary bar above the table
 $summary = ['present' => 0, 'absent' => 0, 'late' => 0];
 foreach ($records as $r) {
     if (isset($summary[$r['status']])) $summary[$r['status']]++;
@@ -108,7 +113,7 @@ $total = count($records);
     <div class="page-title">Advanced Filter</div>
     <div class="page-sub">Combine any filters — results update on submit.</div>
 
-    <!-- Advanced Filter Form -->
+    <!-- GET form so the filtered URL is shareable / bookmarkable -->
     <form method="GET" action="filter.php" class="card" style="max-width:800px;margin-bottom:24px;">
       <div class="form-row" style="margin-bottom:12px;">
         <div class="form-group" style="margin-bottom:0;">
@@ -168,18 +173,20 @@ $total = count($records);
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button type="submit" class="btn btn-primary">Apply Filters</button>
+        <!-- href without params clears all filters -->
         <a href="filter.php" class="btn btn-ghost">Reset</a>
         <a href="list.php"   class="btn btn-ghost" style="margin-left:auto;">← Back to List</a>
       </div>
     </form>
 
     <?php if (!$hasFilter): ?>
+      <!-- Prompt the user to set a filter before we run any query -->
       <div class="callout callout-info" style="background:var(--accent-soft);border-left:3px solid var(--accent);color:var(--text);">
         ℹ️ Select at least one filter above and click Apply Filters to see results.
       </div>
     <?php else: ?>
 
-      <!-- Summary -->
+      <!-- Summary bar — present rate helps spot attendance issues at a glance -->
       <?php if ($total > 0): ?>
         <div class="report-summary">
           <div class="summary-card"><div class="summary-value"><?= $total ?></div><div class="summary-label">Total</div></div>
@@ -187,6 +194,7 @@ $total = count($records);
           <div class="summary-card summary-late"><div class="summary-value"><?= $summary['late'] ?></div><div class="summary-label">Late</div></div>
           <div class="summary-card summary-absent"><div class="summary-value"><?= $summary['absent'] ?></div><div class="summary-label">Absent</div></div>
           <div class="summary-card">
+            <!-- Rate is present-only; late is excluded deliberately (still a partial absence) -->
             <div class="summary-value"><?= $total > 0 ? round(($summary['present'] / $total) * 100) : 0 ?>%</div>
             <div class="summary-label">Rate</div>
           </div>
